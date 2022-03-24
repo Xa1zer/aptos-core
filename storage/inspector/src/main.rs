@@ -36,8 +36,8 @@ enum Command {
         #[structopt(parse(try_from_str))]
         address: AccountAddress,
     },
-    #[structopt(name = "list-accounts")]
-    ListAccounts,
+    #[structopt(name = "list-state-store")]
+    ListStateStore,
 }
 
 /// Print out latest information stored in the DB.
@@ -121,7 +121,7 @@ fn list_txns(db: &AptosDB) {
     }
 }
 
-fn list_accounts(db: &AptosDB) {
+fn list_state_store(db: &AptosDB) {
     let version = db
         .get_latest_version()
         .expect("Unable to get latest version");
@@ -186,8 +186,8 @@ fn main() {
             Command::PrintAccount { address } => {
                 print_account(&db, address);
             }
-            Command::ListAccounts => {
-                list_accounts(&db);
+            Command::ListStateStore => {
+                list_state_store(&db);
             }
         }
     } else {

@@ -8,13 +8,13 @@ use crate::{
 use aptos_crypto::HashValue;
 use aptos_logger::prelude::*;
 use aptos_types::{
-    account_state_blob::AccountStatesChunkWithProof,
     ledger_info::LedgerInfoWithSignatures,
+    state_store_key::RawStateValueChunkWithProof,
     transaction::{TransactionListWithProof, TransactionOutputListWithProof, Version},
 };
 use data_streaming_service::data_notification::NotificationId;
 use executor_types::ChunkExecutorTrait;
-use futures::{channel::mpsc, SinkExt, StreamExt};
+use futures::{channel::mpsc, SinkExt};
 use std::{
     future::Future,
     sync::{
@@ -78,7 +78,7 @@ pub trait StorageSynchronizerInterface {
     fn save_account_states(
         &mut self,
         notification_id: NotificationId,
-        account_states_with_proof: AccountStatesChunkWithProof,
+        account_states_with_proof: RawStateValueChunkWithProof,
     ) -> Result<(), Error>;
 }
 
@@ -230,7 +230,7 @@ impl StorageSynchronizerInterface for StorageSynchronizer {
     fn save_account_states(
         &mut self,
         notification_id: NotificationId,
-        account_states_with_proof: AccountStatesChunkWithProof,
+        account_states_with_proof: RawStateValueChunkWithProof,
     ) -> Result<(), Error> {
         let state_snapshot_notifier = &mut self
             .state_snapshot_notifier
@@ -255,7 +255,7 @@ impl StorageSynchronizerInterface for StorageSynchronizer {
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 enum StorageDataChunk {
-    Accounts(NotificationId, AccountStatesChunkWithProof),
+    Accounts(NotificationId, RawStateValueChunkWithProof),
     Transactions(
         NotificationId,
         TransactionListWithProof,

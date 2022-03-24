@@ -31,7 +31,7 @@ fn put_account_state_set(
     let mut cs = ChangeSet::new();
     let expected_new_leaves = account_state_set.len();
     let root = store
-        .put_account_state_sets(
+        .put_value_sets(
             vec![account_state_set.into_iter().collect::<HashMap<_, _>>()],
             None,
             version,
@@ -80,7 +80,7 @@ fn verify_state_in_store(
     root: HashValue,
 ) {
     let (value, proof) = store
-        .get_account_state_with_proof_by_version(address, version)
+        .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address), version)
         .unwrap();
     assert_eq!(value.as_ref(), expected_value);
     proof.verify(root, address.hash(), value.as_ref()).unwrap();
@@ -93,7 +93,7 @@ fn test_empty_store() {
     let store = &db.state_store;
     let address = AccountAddress::new([1u8; AccountAddress::LENGTH]);
     assert!(store
-        .get_account_state_with_proof_by_version(address, 0)
+        .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address), 0)
         .is_err());
 }
 
@@ -211,7 +211,7 @@ fn test_retired_records() {
         );
         // root0 is gone.
         assert!(store
-            .get_account_state_with_proof_by_version(address2, 0)
+            .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address2), 0)
             .is_err());
         // root1 is still there.
         verify_state_in_store(store, address1, Some(&value1), 1, root1);
@@ -227,7 +227,7 @@ fn test_retired_records() {
         );
         // root1 is gone.
         assert!(store
-            .get_account_state_with_proof_by_version(address2, 1)
+            .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address2), 1)
             .is_err());
         // root2 is still there.
         verify_state_in_store(store, address1, Some(&value1), 2, root2);
@@ -304,7 +304,7 @@ proptest! {
             .collect();
         let rightmost_of_batch1 = batch1.last().map(|(key, _value)| *key).unwrap();
         let proof_of_batch1 = store1
-            .get_account_state_range_proof(rightmost_of_batch1, version)
+            .get_value_range_proof(rightmost_of_batch1, version)
             .unwrap();
 
         restore.add_chunk(batch1, proof_of_batch1).unwrap();
@@ -315,7 +315,7 @@ proptest! {
             .collect();
         let rightmost_of_batch2 = batch2.last().map(|(key, _value)| *key).unwrap();
         let proof_of_batch2 = store1
-            .get_account_state_range_proof(rightmost_of_batch2, version)
+            .get_value_range_proof(rightmost_of_batch2, version)
             .unwrap();
 
         restore.add_chunk(batch2, proof_of_batch2).unwrap();
@@ -342,7 +342,7 @@ proptest! {
         let version = (input.len() - 1) as Version;
         let expected_root_hash = store1.get_root_hash(version).unwrap();
         prop_assert_eq!(
-            store1.get_account_count(version).unwrap(),
+            store1.get_leaf_count(version).unwrap(),
             input.len()
         );
 
@@ -353,8 +353,8 @@ proptest! {
         let mut restore = store2.get_snapshot_receiver(version, expected_root_hash).unwrap();
         let mut current_idx = 0;
         while current_idx < input.len() {
-            let chunk = store1.get_account_chunk_with_proof(version, current_idx, batch_size).unwrap();
-            restore.add_chunk(chunk.account_blobs, chunk.proof).unwrap();
+            let chunk = store1.get_value_chunk_with_proof(version, current_idx, batch_size).unwrap();
+            restore.add_chunk(chunk.raw_values, chunk.proof).unwrap();
             current_idx += batch_size;
         }
 
@@ -362,7 +362,7 @@ proptest! {
         let actual_root_hash = store2.get_root_hash(version).unwrap();
         prop_assert_eq!(actual_root_hash, expected_root_hash);
         prop_assert_eq!(
-            store2.get_account_count(version).unwrap(),
+            store2.get_leaf_count(version).unwrap(),
             input.len()
         );
     }
@@ -402,7 +402,7 @@ proptest! {
             .collect();
         let rightmost_of_batch1 = batch1.last().map(|(key, _value)| *key).unwrap();
         let proof_of_batch1 = store1
-            .get_account_state_range_proof(rightmost_of_batch1, version)
+            .get_value_range_proof(rightmost_of_batch1, version)
             .unwrap();
 
         restore.add_chunk(batch1, proof_of_batch1).unwrap();
@@ -423,7 +423,7 @@ proptest! {
         let db = AptosDB::new_for_test(&tmp_dir);
         let store = &db.state_store;
         init_store(store, input.into_iter());
-        assert_eq!(store.get_account_count(version).unwrap(), account_count);
+        assert_eq!(store.get_leaf_count(version).unwrap(), account_count);
     }
 }
 
@@ -441,7 +441,7 @@ fn update_store(
         let mut cs = ChangeSet::new();
         let account_state_set: HashMap<_, _> = std::iter::once((key, value)).collect();
         store
-            .put_account_state_sets(
+            .put_value_sets(
                 vec![account_state_set],
                 None,
                 first_version + i as Version,

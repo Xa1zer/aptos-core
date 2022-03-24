@@ -9,10 +9,10 @@ use aptos_config::config::BootstrappingMode;
 use aptos_data_client::GlobalDataSummary;
 use aptos_logger::*;
 use aptos_types::{
-    account_state_blob::AccountStatesChunkWithProof,
     epoch_change::Verifier,
     epoch_state::EpochState,
     ledger_info::LedgerInfoWithSignatures,
+    state_store_key::RawStateValueChunkWithProof,
     transaction::{
         TransactionInfo, TransactionListWithProof, TransactionOutputListWithProof, Version,
     },
@@ -678,7 +678,7 @@ impl<StorageSyncer: StorageSynchronizerInterface + Clone> Bootstrapper<StorageSy
     async fn verify_account_states_indices(
         &mut self,
         notification_id: NotificationId,
-        account_states_chunk_with_proof: &AccountStatesChunkWithProof,
+        account_states_chunk_with_proof: &RawStateValueChunkWithProof,
     ) -> Result<(), Error> {
         // Verify the payload start index is valid
         let expected_start_index = self.account_state_syncer.next_account_index_to_process;
@@ -699,7 +699,7 @@ impl<StorageSyncer: StorageSynchronizerInterface + Clone> Bootstrapper<StorageSy
             .ok_or_else(|| {
                 Error::IntegerOverflow("The expected number of accounts has overflown!".into())
             })?;
-        let num_accounts = account_states_chunk_with_proof.account_blobs.len() as u64;
+        let num_accounts = account_states_chunk_with_proof.raw_values.len() as u64;
         if expected_num_accounts != num_accounts {
             self.terminate_active_stream(notification_id, NotificationFeedback::InvalidPayloadData)
                 .await?;
@@ -733,7 +733,7 @@ impl<StorageSyncer: StorageSynchronizerInterface + Clone> Bootstrapper<StorageSy
     async fn process_account_states_payload(
         &mut self,
         notification_id: NotificationId,
-        account_states_chunk_with_proof: AccountStatesChunkWithProof,
+        account_states_chunk_with_proof: RawStateValueChunkWithProof,
     ) -> Result<(), Error> {
         // Verify that we're expecting account payloads
         let bootstrapping_mode = self.driver_configuration.config.bootstrapping_mode;

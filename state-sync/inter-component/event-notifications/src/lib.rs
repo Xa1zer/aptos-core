@@ -287,7 +287,7 @@ impl EventSubscriptionService {
             .storage
             .read()
             .reader
-            .get_account_state_with_proof_by_version(config_address(), version)
+            .get_value_with_proof_by_version(config_address(), version)
             .map_err(|error| {
                 Error::UnexpectedErrorEncountered(format!(
                     "Failed to fetch account state with proof {:?}",

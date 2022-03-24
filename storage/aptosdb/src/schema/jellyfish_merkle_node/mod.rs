@@ -11,7 +11,9 @@
 use crate::schema::JELLYFISH_MERKLE_NODE_CF_NAME;
 use anyhow::Result;
 use aptos_jellyfish_merkle::node_type::NodeKey;
-use aptos_types::{account_state_blob::AccountStateBlob, transaction::Version};
+use aptos_types::{
+    account_state_blob::AccountStateBlob, state_store_key::StateStoreValue, transaction::Version,
+};
 use byteorder::{BigEndian, WriteBytesExt};
 use schemadb::{
     define_schema,
@@ -19,7 +21,7 @@ use schemadb::{
 };
 use std::mem::size_of;
 
-type Node = aptos_jellyfish_merkle::node_type::Node<AccountStateBlob>;
+type Node = aptos_jellyfish_merkle::node_type::Node<StateStoreValue>;
 
 define_schema!(
     JellyfishMerkleNodeSchema,

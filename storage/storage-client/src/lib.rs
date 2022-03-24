@@ -88,7 +88,7 @@ impl StorageClient {
 }
 
 impl DbReader for StorageClient {
-    fn get_account_state_with_proof_by_version(
+    fn get_value_with_proof_by_version(
         &self,
         address: AccountAddress,
         version: u64,

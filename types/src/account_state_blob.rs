@@ -6,7 +6,7 @@ use crate::{
     account_config::{AccountResource, BalanceResource, DiemAccountResource},
     account_state::AccountState,
     ledger_info::LedgerInfo,
-    proof::{AccountStateProof, SparseMerkleRangeProof},
+    proof::AccountStateProof,
     transaction::Version,
 };
 use anyhow::{anyhow, ensure, Error, Result};
@@ -220,23 +220,6 @@ impl AccountStateWithProof {
         self.proof
             .verify(ledger_info, version, address.hash(), self.blob.as_ref())
     }
-}
-
-/// TODO(joshlind): add a proof implementation (e.g., verify()) and unit tests
-/// for these once we start supporting them.
-///
-/// A single chunk of all account states at a specific version.
-/// Note: this is similar to `StateSnapshotChunk` but all data is included
-/// in the struct itself and not behind pointers/handles to file locations.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct AccountStatesChunkWithProof {
-    pub first_index: u64,     // The first account index in chunk
-    pub last_index: u64,      // The last account index in chunk
-    pub first_key: HashValue, // The first account key in chunk
-    pub last_key: HashValue,  // The last account key in chunk
-    pub account_blobs: Vec<(HashValue, AccountStateBlob)>, // The account blobs in the chunk
-    pub proof: SparseMerkleRangeProof, // The proof to ensure the chunk is in the account states
-    pub root_hash: HashValue, // The root hash of the sparse merkle tree for this chunk
 }
 
 #[cfg(test)]

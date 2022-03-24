@@ -8,7 +8,7 @@ use aptos_types::{
     account_address::AccountAddress,
     account_config::aptos_root_address,
     account_state::AccountState,
-    account_state_blob::{AccountStateBlob, AccountStateWithProof, AccountStatesChunkWithProof},
+    account_state_blob::{AccountStateBlob, AccountStateWithProof},
     contract_event::{ContractEvent, EventByVersionWithProof, EventWithProof},
     epoch_change::EpochChangeProof,
     epoch_state::EpochState,
@@ -21,6 +21,7 @@ use aptos_types::{
         SparseMerkleRangeProof, TransactionAccumulatorSummary,
     },
     state_proof::StateProof,
+    state_store_key::RawStateValueChunkWithProof,
     transaction::{
         AccountTransactionsWithProof, TransactionInfo, TransactionListWithProof,
         TransactionOutputListWithProof, TransactionToCommit, TransactionWithProof, Version,
@@ -409,7 +410,7 @@ pub trait DbReader: Send + Sync {
     // ../aptosdb/struct.AptosDB.html#method.get_account_state_with_proof_by_version
     //
     // This is used by diem core (executor) internally.
-    fn get_account_state_with_proof_by_version(
+    fn get_value_with_proof_by_version(
         &self,
         address: AccountAddress,
         version: Version,
@@ -493,7 +494,7 @@ pub trait DbReader: Send + Sync {
         version: Version,
         start_idx: usize,
         chunk_size: usize,
-    ) -> Result<AccountStatesChunkWithProof> {
+    ) -> Result<RawStateValueChunkWithProof> {
         unimplemented!()
     }
 
@@ -514,7 +515,7 @@ impl MoveStorage for &dyn DbReader {
         version: Version,
     ) -> Result<Vec<u8>> {
         let (account_state_blob, _) =
-            self.get_account_state_with_proof_by_version(access_path.address, version)?;
+            self.get_value_with_proof_by_version(access_path.address, version)?;
         let account_state =
             AccountState::try_from(&account_state_blob.ok_or_else(|| {
                 format_err!("missing blob in account state/account does not exist")
@@ -529,7 +530,7 @@ impl MoveStorage for &dyn DbReader {
     fn fetch_config_by_version(&self, config_id: ConfigID, version: Version) -> Result<Vec<u8>> {
         let aptos_root_state = AccountState::try_from(
             &self
-                .get_account_state_with_proof_by_version(aptos_root_address(), version)?
+                .get_value_with_proof_by_version(aptos_root_address(), version)?
                 .0
                 .ok_or_else(|| {
                     format_err!("missing blob in account state/account does not exist")

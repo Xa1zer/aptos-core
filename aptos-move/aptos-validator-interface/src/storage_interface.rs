@@ -35,7 +35,7 @@ impl AptosValidatorInterface for DBDebuggerInterface {
         version: Version,
     ) -> Result<Option<AccountState>> {
         self.0
-            .get_account_state_with_proof_by_version(account, version)?
+            .get_value_with_proof_by_version(account, version)?
             .0
             .map(|s| AccountState::try_from(&s))
             .transpose()

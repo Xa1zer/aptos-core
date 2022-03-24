@@ -14,6 +14,7 @@ use crate::{
 use anyhow::{anyhow, ensure, Result};
 use aptos_crypto::hash::HashValue;
 use aptos_jellyfish_merkle::iterator::JellyfishMerkleIterator;
+use aptos_types::state_store_key::StateStoreValue;
 use aptos_types::{
     account_state_blob::AccountStateBlob,
     contract_event::ContractEvent,
@@ -103,7 +104,7 @@ impl BackupHandler {
     pub fn get_account_iter(
         &self,
         version: Version,
-    ) -> Result<Box<dyn Iterator<Item = Result<(HashValue, AccountStateBlob)>> + Send + Sync>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<(HashValue, StateStoreValue)>> + Send + Sync>> {
         let iterator = JellyfishMerkleIterator::new(
             Arc::clone(&self.state_store),
             version,
@@ -125,10 +126,10 @@ impl BackupHandler {
         version: Version,
     ) -> Result<SparseMerkleRangeProof> {
         self.state_store
-            .get_account_state_range_proof(rightmost_key, version)
+            .get_value_range_proof(rightmost_key, version)
     }
 
-    /// Gets the epoch, commited version, and synced version of the DB.
+    /// Gets the epoch, committed version, and synced version of the DB.
     pub fn get_db_state(&self) -> Result<Option<DbState>> {
         self.ledger_store
             .get_startup_info()?

@@ -9,6 +9,7 @@ use crate::{
 use anyhow::{ensure, Result};
 use aptos_crypto::{hash::SPARSE_MERKLE_PLACEHOLDER_HASH, HashValue};
 use aptos_jellyfish_merkle::restore::JellyfishMerkleRestore;
+use aptos_types::state_store_key::StateStoreValue;
 use aptos_types::{
     account_state_blob::AccountStateBlob,
     contract_event::ContractEvent,
@@ -54,7 +55,7 @@ impl RestoreHandler {
         &self,
         version: Version,
         expected_root_hash: HashValue,
-    ) -> Result<JellyfishMerkleRestore<AccountStateBlob>> {
+    ) -> Result<JellyfishMerkleRestore<StateStoreValue>> {
         JellyfishMerkleRestore::new_overwrite(
             Arc::clone(&self.state_store),
             version,

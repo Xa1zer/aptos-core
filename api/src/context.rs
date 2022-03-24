@@ -107,9 +107,7 @@ impl Context {
         account: AccountAddress,
         version: u64,
     ) -> Result<Option<AccountStateBlob>> {
-        let (account_state_blob, _) = self
-            .db
-            .get_account_state_with_proof_by_version(account, version)?;
+        let (account_state_blob, _) = self.db.get_value_with_proof_by_version(account, version)?;
         Ok(account_state_blob)
     }
 

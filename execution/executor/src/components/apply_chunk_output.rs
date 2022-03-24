@@ -165,7 +165,7 @@ impl ApplyChunkOutput {
     )> {
         let StateCache {
             frozen_base,
-            mut accounts,
+            state: mut accounts,
             proofs,
         } = state_cache;
 

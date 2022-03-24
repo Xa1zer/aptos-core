@@ -12,8 +12,8 @@ use ::network::ProtocolId;
 use aptos_config::config::StorageServiceConfig;
 use aptos_logger::prelude::*;
 use aptos_types::{
-    account_state_blob::AccountStatesChunkWithProof,
     epoch_change::EpochChangeProof,
+    state_store_key::RawStateValueChunkWithProof,
     transaction::{TransactionListWithProof, TransactionOutputListWithProof, Version},
 };
 use bounded_executor::BoundedExecutor;
@@ -341,7 +341,7 @@ pub trait StorageReaderInterface: Clone + Send + 'static {
         version: u64,
         start_account_index: u64,
         end_account_index: u64,
-    ) -> Result<AccountStatesChunkWithProof, Error>;
+    ) -> Result<RawStateValueChunkWithProof, Error>;
 }
 
 /// The underlying implementation of the StorageReaderInterface, used by the
@@ -540,7 +540,7 @@ impl StorageReaderInterface for StorageReader {
         version: u64,
         start_account_index: u64,
         end_account_index: u64,
-    ) -> Result<AccountStatesChunkWithProof, Error> {
+    ) -> Result<RawStateValueChunkWithProof, Error> {
         let expected_num_accounts = inclusive_range_len(start_account_index, end_account_index)?;
         let account_states_chunk_with_proof = self
             .storage

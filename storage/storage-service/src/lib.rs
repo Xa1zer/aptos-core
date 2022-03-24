@@ -63,7 +63,7 @@ impl StorageService {
     > {
         Ok(self
             .db
-            .get_account_state_with_proof_by_version(req.address, req.version)?)
+            .get_value_with_proof_by_version(req.address, req.version)?)
     }
 
     fn get_startup_info(&self) -> Result<Option<StartupInfo>, Error> {

@@ -210,7 +210,7 @@ pub fn print_api_config(config: &NodeConfig, lazy: bool) {
 fn fetch_chain_id(db: &DbReaderWriter) -> ChainId {
     let blob = db
         .reader
-        .get_account_state_with_proof_by_version(
+        .get_value_with_proof_by_version(
             aptos_root_address(),
             (&*db.reader)
                 .fetch_synced_version()

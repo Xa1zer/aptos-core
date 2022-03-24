@@ -5,6 +5,7 @@ use crate::DbReader;
 use anyhow::{format_err, Result};
 use aptos_crypto::{hash::SPARSE_MERKLE_PLACEHOLDER_HASH, HashValue};
 use aptos_state_view::{StateView, StateViewId};
+use aptos_types::state_store_key::{StateStoreKey, StateStoreValue};
 use aptos_types::{
     access_path::AccessPath,
     account_address::{AccountAddress, HashAccountAddress},
@@ -38,7 +39,7 @@ pub struct VerifiedStateView {
     latest_persistent_state_root: HashValue,
 
     /// The in-momery version of sparse Merkle tree of which the states haven't been committed.
-    speculative_state: FrozenSparseMerkleTree<AccountStateBlob>,
+    speculative_state: FrozenSparseMerkleTree<StateStoreValue>,
 
     /// The cache of verified account states from `reader` and `speculative_state_view`,
     /// represented by a hashmap with an account address as key and a pair of an ordered
@@ -65,10 +66,10 @@ pub struct VerifiedStateView {
     ///                                    |                     |
     ///        +---------------------------+---------------------+-------+
     ///        | +-------------------------+---------------------+-----+ |
-    ///        | |    account_to_state_cache, account_to_proof_cache   | |
+    ///        | |           state_cache,     account_to_proof_cache   | |
     ///        | +---------------^---------------------------^---------+ |
     ///        |                 |                           |           |
-    ///        |     account state blob only        account state blob   |
+    ///        |     state store values only        account state blob   |
     ///        |                 |                         proof         |
     ///        |                 |                           |           |
     ///        | +---------------+--------------+ +----------+---------+ |
@@ -76,8 +77,10 @@ pub struct VerifiedStateView {
     ///        | +------------------------------+ +--------------------+ |
     ///        +---------------------------------------------------------+
     /// ```
-    account_to_state_cache: RwLock<HashMap<AccountAddress, AccountState>>,
-    account_to_proof_cache: RwLock<HashMap<HashValue, SparseMerkleProof<AccountStateBlob>>>,
+    state_cache: RwLock<HashMap<StateStoreKey, StateStoreValue>>,
+    /// TODO(skedia): This is very account related logic, that needs to be moved out of storage layer.
+    /// Will be addressed in a follow up diff.
+    account_to_proof_cache: RwLock<HashMap<HashValue, SparseMerkleProof<StateStoreValue>>>,
 }
 
 impl VerifiedStateView {
@@ -89,7 +92,7 @@ impl VerifiedStateView {
         reader: Arc<dyn DbReader>,
         latest_persistent_version: Option<Version>,
         latest_persistent_state_root: HashValue,
-        speculative_state: SparseMerkleTree<AccountStateBlob>,
+        speculative_state: SparseMerkleTree<StateStoreValue>,
     ) -> Self {
         // Hack: When there's no transaction in the db but state tree root hash is not the
         // placeholder hash, it implies that there's pre-genesis state present.
@@ -106,7 +109,7 @@ impl VerifiedStateView {
             latest_persistent_version,
             latest_persistent_state_root,
             speculative_state: speculative_state.freeze(),
-            account_to_state_cache: RwLock::new(HashMap::new()),
+            state_cache: RwLock::new(HashMap::new()),
             account_to_proof_cache: RwLock::new(HashMap::new()),
         }
     }
@@ -114,16 +117,16 @@ impl VerifiedStateView {
     pub fn into_state_cache(self) -> StateCache {
         StateCache {
             frozen_base: self.speculative_state,
-            accounts: self.account_to_state_cache.into_inner(),
+            state: self.state_cache.into_inner(),
             proofs: self.account_to_proof_cache.into_inner(),
         }
     }
 }
 
 pub struct StateCache {
-    pub frozen_base: FrozenSparseMerkleTree<AccountStateBlob>,
-    pub accounts: HashMap<AccountAddress, AccountState>,
-    pub proofs: HashMap<HashValue, SparseMerkleProof<AccountStateBlob>>,
+    pub frozen_base: FrozenSparseMerkleTree<StateStoreValue>,
+    pub state: HashMap<StateStoreKey, StateStoreValue>,
+    pub proofs: HashMap<HashValue, SparseMerkleProof<StateStoreValue>>,
 }
 
 impl StateView for VerifiedStateView {
@@ -136,7 +139,11 @@ impl StateView for VerifiedStateView {
         let path = &access_path.path;
 
         // Lock for read first:
-        if let Some(contents) = self.account_to_state_cache.read().get(&address) {
+        if let Some(contents) = self
+            .state_cache
+            .read()
+            .get(&StateStoreKey::AccountAddressKey(address))
+        {
             return Ok(contents.get(path).cloned());
         }
 
@@ -151,7 +158,7 @@ impl StateView for VerifiedStateView {
                 let (blob, proof) = match self.latest_persistent_version {
                     Some(version) => self
                         .reader
-                        .get_account_state_with_proof_by_version(address, version)?,
+                        .get_value_with_proof_by_version(address, version)?,
                     None => (None, SparseMerkleProof::new(None, vec![])),
                 };
                 proof
@@ -186,7 +193,7 @@ impl StateView for VerifiedStateView {
             .transpose()?
             .unwrap_or_default();
 
-        match self.account_to_state_cache.write().entry(address) {
+        match self.state_cache.write().entry(address) {
             Entry::Occupied(occupied) => Ok(occupied.get().get(path).cloned()),
             Entry::Vacant(vacant) => Ok(vacant.insert(new_account_blob).get(path).cloned()),
         }

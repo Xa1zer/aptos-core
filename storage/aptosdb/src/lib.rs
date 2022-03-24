@@ -59,10 +59,11 @@ use anyhow::{ensure, format_err, Result};
 use aptos_config::config::{RocksdbConfig, StoragePrunerConfig, NO_OP_STORAGE_PRUNER_CONFIG};
 use aptos_crypto::hash::{HashValue, SPARSE_MERKLE_PLACEHOLDER_HASH};
 use aptos_logger::prelude::*;
+use aptos_types::state_store_key::StateStoreValue;
 use aptos_types::{
     account_address::AccountAddress,
     account_state::AccountState,
-    account_state_blob::{AccountStateBlob, AccountStateWithProof, AccountStatesChunkWithProof},
+    account_state_blob::{AccountStateBlob, AccountStateWithProof},
     contract_event::{ContractEvent, EventByVersionWithProof, EventWithProof},
     epoch_change::EpochChangeProof,
     event::EventKey,
@@ -72,6 +73,7 @@ use aptos_types::{
         TransactionInfoListWithProof,
     },
     state_proof::StateProof,
+    state_store_key::{RawStateValueChunkWithProof, StateStoreKey},
     transaction::{
         AccountTransactionsWithProof, TransactionInfo, TransactionListWithProof, TransactionOutput,
         TransactionOutputListWithProof, TransactionToCommit, TransactionWithProof, Version,
@@ -592,7 +594,7 @@ impl AptosDB {
                 .iter()
                 .map(|txn_to_commit| txn_to_commit.jf_node_hashes())
                 .collect::<Option<Vec<_>>>();
-            self.state_store.put_account_state_sets(
+            self.state_store.put_value_sets(
                 account_state_sets,
                 node_hashes,
                 first_version,
@@ -678,9 +680,10 @@ impl DbReader for AptosDB {
         gauged_api("get_latest_account_state", || {
             let ledger_info_with_sigs = self.ledger_store.get_latest_ledger_info()?;
             let version = ledger_info_with_sigs.ledger_info().version();
-            let (blob, _proof) = self
-                .state_store
-                .get_account_state_with_proof_by_version(address, version)?;
+            let (blob, _proof) = self.state_store.get_value_with_proof_by_version(
+                StateStoreKey::AccountAddressKey(address),
+                version,
+            )?;
             Ok(blob)
         })
     }
@@ -1004,9 +1007,11 @@ impl DbReader for AptosDB {
             let txn_info_with_proof = self
                 .ledger_store
                 .get_transaction_info_with_proof(version, ledger_version)?;
-            let (account_state_blob, sparse_merkle_proof) = self
-                .state_store
-                .get_account_state_with_proof_by_version(address, version)?;
+            let (account_state_blob, sparse_merkle_proof) =
+                self.state_store.get_value_with_proof_by_version(
+                    StateStoreKey::AccountAddressKey(address),
+                    version,
+                )?;
             Ok(AccountStateWithProof::new(
                 version,
                 account_state_blob,
@@ -1019,17 +1024,14 @@ impl DbReader for AptosDB {
         gauged_api("get_startup_info", || self.ledger_store.get_startup_info())
     }
 
-    fn get_account_state_with_proof_by_version(
+    fn get_value_with_proof_by_version(
         &self,
-        address: AccountAddress,
+        state_store_key: StateStoreKey,
         version: Version,
-    ) -> Result<(
-        Option<AccountStateBlob>,
-        SparseMerkleProof<AccountStateBlob>,
-    )> {
+    ) -> Result<(Option<StateStoreValue>, SparseMerkleProof<StateStoreValue>)> {
         gauged_api("get_account_state_with_proof_by_version", || {
             self.state_store
-                .get_account_state_with_proof_by_version(address, version)
+                .get_value_with_proof_by_version(state_store_key, version)
         })
     }
 
@@ -1185,7 +1187,7 @@ impl DbReader for AptosDB {
 
     fn get_account_count(&self, version: Version) -> Result<usize> {
         gauged_api("get_account_count", || {
-            self.state_store.get_account_count(version)
+            self.state_store.get_leaf_count(version)
         })
     }
 
@@ -1194,10 +1196,10 @@ impl DbReader for AptosDB {
         version: Version,
         first_index: usize,
         chunk_size: usize,
-    ) -> Result<AccountStatesChunkWithProof> {
+    ) -> Result<RawStateValueChunkWithProof> {
         gauged_api("get_account_chunk_with_proof", || {
             self.state_store
-                .get_account_chunk_with_proof(version, first_index, chunk_size)
+                .get_value_chunk_with_proof(version, first_index, chunk_size)
         })
     }
 
@@ -1212,10 +1214,8 @@ impl ModuleResolver for AptosDB {
     type Error = anyhow::Error;
 
     fn get_module(&self, module_id: &ModuleId) -> Result<Option<Vec<u8>>> {
-        let (account_state_with_proof, _) = self.get_account_state_with_proof_by_version(
-            *module_id.address(),
-            self.get_latest_version()?,
-        )?;
+        let (account_state_with_proof, _) =
+            self.get_value_with_proof_by_version(*module_id.address(), self.get_latest_version()?)?;
         if let Some(account_state_blob) = account_state_with_proof {
             let account_state = AccountState::try_from(&account_state_blob)?;
             Ok(account_state.get(&module_id.access_vector()).cloned())
@@ -1230,7 +1230,7 @@ impl ResourceResolver for AptosDB {
 
     fn get_resource(&self, address: &AccountAddress, tag: &StructTag) -> Result<Option<Vec<u8>>> {
         let (account_state_with_proof, _) =
-            self.get_account_state_with_proof_by_version(*address, self.get_latest_version()?)?;
+            self.get_value_with_proof_by_version(*address, self.get_latest_version()?)?;
         if let Some(account_state_blob) = account_state_with_proof {
             let account_state = AccountState::try_from(&account_state_blob)?;
             Ok(account_state.get(&tag.access_vector()).cloned())
@@ -1322,7 +1322,7 @@ impl DbWriter for AptosDB {
                 // -1 for "not fully migrated", -2 for "error on get_account_count()"
                 DIEM_STORAGE_LATEST_ACCOUNT_COUNT.set(
                     self.state_store
-                        .get_account_count(last_version)
+                        .get_leaf_count(last_version)
                         .map_or(-1, |c| c as i64),
                 );
 
