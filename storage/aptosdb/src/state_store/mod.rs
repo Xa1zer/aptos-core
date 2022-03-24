@@ -3,6 +3,7 @@
 
 //! This file defines state store APIs that are related account state Merkle tree.
 
+mod state_store_key;
 #[cfg(test)]
 mod state_store_test;
 
