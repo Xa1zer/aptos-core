@@ -111,6 +111,9 @@ compiled_package_info:
       name: Token
     : AptosFramework
     ? address: "00000000000000000000000000000001"
+      name: TokenTransfers
+    : AptosFramework
+    ? address: "00000000000000000000000000000001"
       name: TransactionFee
     : AptosFramework
     ? address: "00000000000000000000000000000001"
@@ -134,7 +137,7 @@ compiled_package_info:
     ? address: "00000000000000000000000000000001"
       name: Version
     : CoreFramework
-  source_digest: B2209EC6ACD13FC039E79154A7ABC3F3894972AB6E76A6EA511921581361BC03
+  source_digest: 0C0887A4183A57A2CAC80FC5E0AA0640F526418E6B2C83AD797DB8DC0945A59D
   build_flags:
     dev_mode: false
     test_mode: false
