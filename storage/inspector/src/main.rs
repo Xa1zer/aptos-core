@@ -83,7 +83,7 @@ fn print_txn(db: &AptosDB, version: u64) {
 
 fn print_account(db: &AptosDB, addr: AccountAddress) {
     let maybe_blob = db
-        .get_latest_account_state(addr)
+        .get_latest_value(addr)
         .expect("Unable to read AccountState");
     if let Some(blob) = maybe_blob {
         match AccountResource::try_from(&blob) {

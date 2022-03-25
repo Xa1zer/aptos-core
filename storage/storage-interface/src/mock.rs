@@ -16,10 +16,7 @@ use std::convert::TryFrom;
 pub struct MockDbReaderWriter;
 
 impl DbReader for MockDbReaderWriter {
-    fn get_latest_account_state(
-        &self,
-        _address: AccountAddress,
-    ) -> Result<Option<AccountStateBlob>> {
+    fn get_latest_value(&self, _address: AccountAddress) -> Result<Option<AccountStateBlob>> {
         Ok(Some(get_mock_account_state_blob()))
     }
 }

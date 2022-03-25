@@ -14,12 +14,12 @@ use crate::{
 use anyhow::{anyhow, ensure, Result};
 use aptos_crypto::hash::HashValue;
 use aptos_jellyfish_merkle::iterator::JellyfishMerkleIterator;
-use aptos_types::state_store_key::StateStoreValue;
 use aptos_types::{
     account_state_blob::AccountStateBlob,
     contract_event::ContractEvent,
     ledger_info::LedgerInfoWithSignatures,
     proof::{SparseMerkleRangeProof, TransactionAccumulatorRangeProof, TransactionInfoWithProof},
+    state_store_key::ResourceValue,
     transaction::{Transaction, TransactionInfo, Version},
 };
 use itertools::zip_eq;
@@ -104,7 +104,7 @@ impl BackupHandler {
     pub fn get_account_iter(
         &self,
         version: Version,
-    ) -> Result<Box<dyn Iterator<Item = Result<(HashValue, StateStoreValue)>> + Send + Sync>> {
+    ) -> Result<Box<dyn Iterator<Item = Result<(HashValue, ResourceValue)>> + Send + Sync>> {
         let iterator = JellyfishMerkleIterator::new(
             Arc::clone(&self.state_store),
             version,

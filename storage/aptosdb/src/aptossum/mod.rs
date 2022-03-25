@@ -9,7 +9,7 @@ use aptos_types::{
     account_state_blob::AccountStateBlob,
     contract_event::ContractEvent,
     event::EventKey,
-    state_store_key::StateStoreKey,
+    state_store_key::ResourceKey,
     transaction::{Transaction, Version},
 };
 use std::{convert::AsRef, path::Path};
@@ -76,7 +76,7 @@ impl Aptossum {
     ) -> Result<Option<AccountStateBlob>> {
         self.db
             .state_store
-            .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address), version)
+            .get_value_with_proof_by_version(ResourceKey::AccountAddressKey(address), version)
             .map(|blob_and_proof| blob_and_proof.0)
     }
 

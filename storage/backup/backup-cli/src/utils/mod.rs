@@ -15,8 +15,10 @@ use aptos_config::config::{RocksdbConfig, NO_OP_STORAGE_PRUNER_CONFIG};
 use aptos_crypto::HashValue;
 use aptos_infallible::duration_since_epoch;
 use aptos_jellyfish_merkle::{restore::JellyfishMerkleRestore, NodeBatch, TreeWriter};
-use aptos_types::state_store_key::StateStoreValue;
-use aptos_types::{account_state_blob::AccountStateBlob, transaction::Version, waypoint::Waypoint};
+use aptos_types::{
+    account_state_blob::AccountStateBlob, state_store_key::ResourceValue, transaction::Version,
+    waypoint::Waypoint,
+};
 use aptosdb::{backup::restore_handler::RestoreHandler, AptosDB, GetRestoreHandler};
 use std::{
     collections::HashMap,
@@ -127,7 +129,7 @@ impl RestoreRunMode {
         &self,
         version: Version,
         expected_root_hash: HashValue,
-    ) -> Result<JellyfishMerkleRestore<StateStoreValue>> {
+    ) -> Result<JellyfishMerkleRestore<ResourceValue>> {
         match self {
             Self::Restore { restore_handler } => {
                 restore_handler.get_state_restore_receiver(version, expected_root_hash)

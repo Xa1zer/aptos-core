@@ -26,6 +26,7 @@ use aptos_types::{
     ledger_info::LedgerInfoWithSignatures,
     nibble::nibble_path::NibblePath,
     proof::{accumulator::InMemoryAccumulator, AccumulatorExtensionProof},
+    state_store_key::ResourceValue,
     transaction::{
         Transaction, TransactionInfo, TransactionListWithProof, TransactionOutputListWithProof,
         TransactionStatus, Version,
@@ -40,8 +41,8 @@ use storage_interface::DbReader;
 pub use executed_chunk::ExecutedChunk;
 use storage_interface::state_view::VerifiedStateView;
 
-type SparseMerkleProof = aptos_types::proof::SparseMerkleProof<AccountStateBlob>;
-type SparseMerkleTree = scratchpad::SparseMerkleTree<AccountStateBlob>;
+type SparseMerkleProof = aptos_types::proof::SparseMerkleProof<ResourceValue>;
+type SparseMerkleTree = scratchpad::SparseMerkleTree<ResourceValue>;
 
 pub trait ChunkExecutorTrait: Send + Sync {
     /// Verifies the transactions based on the provided proofs and ledger info. If the transactions
@@ -387,7 +388,7 @@ impl ProofReader {
     }
 }
 
-impl ProofRead<AccountStateBlob> for ProofReader {
+impl ProofRead<ResourceValue> for ProofReader {
     fn get_proof(&self, key: HashValue) -> Option<&SparseMerkleProof> {
         self.account_to_proof.get(&key)
     }

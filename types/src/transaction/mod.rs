@@ -51,6 +51,10 @@ pub use script::{
     TypeArgumentABI,
 };
 
+use crate::{
+    state_proof::StateProof,
+    state_store_key::{ResourceKey, ResourceValue},
+};
 use std::{collections::BTreeSet, hash::Hash, ops::Deref, sync::atomic::AtomicU64};
 pub use transaction_argument::{parse_transaction_argument, TransactionArgument, VecBytes};
 
@@ -1094,6 +1098,18 @@ impl TransactionToCommit {
 
     pub fn account_states(&self) -> &HashMap<AccountAddress, AccountStateBlob> {
         &self.account_states
+    }
+
+    pub fn state_store_value_set(&self) -> HashMap<ResourceKey, ResourceValue> {
+        self.account_states
+            .iter()
+            .map(|(address, blob)| {
+                (
+                    ResourceKey::AccountAddressKey(*address),
+                    ResourceValue::from(blob.clone()),
+                )
+            })
+            .collect()
     }
 
     pub fn jf_node_hashes(&self) -> Option<&HashMap<NibblePath, HashValue>> {

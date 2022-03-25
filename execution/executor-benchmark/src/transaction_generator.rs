@@ -339,7 +339,7 @@ impl TransactionGenerator {
         for account in &self.accounts_cache {
             let address = account.address;
             let blob = db
-                .get_latest_account_state(address)
+                .get_latest_value(address)
                 .expect("Failed to query storage.")
                 .expect("Account must exist.");
             let account_resource = AccountResource::try_from(&blob).unwrap();

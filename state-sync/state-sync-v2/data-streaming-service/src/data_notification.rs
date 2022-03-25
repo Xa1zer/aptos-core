@@ -5,7 +5,7 @@ use crate::streaming_client::Epoch;
 use aptos_data_client::{Response, ResponsePayload};
 use aptos_types::{
     ledger_info::LedgerInfoWithSignatures,
-    state_store_key::RawStateValueChunkWithProof,
+    state_store_key::ResourceValueChunkWithProof,
     transaction::{TransactionListWithProof, TransactionOutputListWithProof, Version},
 };
 use std::fmt::{Debug, Formatter};
@@ -24,7 +24,7 @@ pub struct DataNotification {
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum DataPayload {
-    AccountStatesWithProof(RawStateValueChunkWithProof),
+    AccountStatesWithProof(ResourceValueChunkWithProof),
     ContinuousTransactionOutputsWithProof(LedgerInfoWithSignatures, TransactionOutputListWithProof),
     ContinuousTransactionsWithProof(LedgerInfoWithSignatures, TransactionListWithProof),
     EpochEndingLedgerInfos(Vec<LedgerInfoWithSignatures>),

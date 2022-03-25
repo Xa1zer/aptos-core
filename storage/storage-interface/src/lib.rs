@@ -8,7 +8,6 @@ use aptos_types::{
     account_address::AccountAddress,
     account_config::aptos_root_address,
     account_state::AccountState,
-    account_state_blob::{AccountStateBlob, AccountStateWithProof},
     contract_event::{ContractEvent, EventByVersionWithProof, EventWithProof},
     epoch_change::EpochChangeProof,
     epoch_state::EpochState,
@@ -21,7 +20,9 @@ use aptos_types::{
         SparseMerkleRangeProof, TransactionAccumulatorSummary,
     },
     state_proof::StateProof,
-    state_store_key::RawStateValueChunkWithProof,
+    state_store_key::{
+        ResourceKey, ResourceValue, ResourceValueChunkWithProof, ResourceValueWithProof,
+    },
     transaction::{
         AccountTransactionsWithProof, TransactionInfo, TransactionListWithProof,
         TransactionOutputListWithProof, TransactionToCommit, TransactionWithProof, Version,
@@ -316,10 +317,7 @@ pub trait DbReader: Send + Sync {
     ///
     /// [`AptosDB::get_latest_account_state`]:
     /// ../aptosdb/struct.AptosDB.html#method.get_latest_account_state
-    fn get_latest_account_state(
-        &self,
-        address: AccountAddress,
-    ) -> Result<Option<AccountStateBlob>> {
+    fn get_latest_value(&self, state_store_key: ResourceKey) -> Result<Option<ResourceValue>> {
         unimplemented!()
     }
 
@@ -393,12 +391,12 @@ pub trait DbReader: Send + Sync {
 
     /// Returns the account state corresponding to the given version and account address with proof
     /// based on `ledger_version`
-    fn get_account_state_with_proof(
+    fn get_value_with_proof(
         &self,
-        address: AccountAddress,
+        state_store_key: ResourceKey,
         version: Version,
         ledger_version: Version,
-    ) -> Result<AccountStateWithProof> {
+    ) -> Result<ResourceValueWithProof> {
         unimplemented!()
     }
 
@@ -412,12 +410,9 @@ pub trait DbReader: Send + Sync {
     // This is used by diem core (executor) internally.
     fn get_value_with_proof_by_version(
         &self,
-        address: AccountAddress,
+        state_store_key: ResourceKey,
         version: Version,
-    ) -> Result<(
-        Option<AccountStateBlob>,
-        SparseMerkleProof<AccountStateBlob>,
-    )> {
+    ) -> Result<(Option<ResourceValue>, SparseMerkleProof<ResourceValue>)> {
         unimplemented!()
     }
 
@@ -494,7 +489,7 @@ pub trait DbReader: Send + Sync {
         version: Version,
         start_idx: usize,
         chunk_size: usize,
-    ) -> Result<RawStateValueChunkWithProof> {
+    ) -> Result<ResourceValueChunkWithProof> {
         unimplemented!()
     }
 
@@ -514,10 +509,12 @@ impl MoveStorage for &dyn DbReader {
         access_path: AccessPath,
         version: Version,
     ) -> Result<Vec<u8>> {
-        let (account_state_blob, _) =
-            self.get_value_with_proof_by_version(access_path.address, version)?;
+        let (state_store_value, _) = self.get_value_with_proof_by_version(
+            ResourceKey::AccountAddressKey(access_path.address),
+            version,
+        )?;
         let account_state =
-            AccountState::try_from(&account_state_blob.ok_or_else(|| {
+            AccountState::try_from(&state_store_value.ok_or_else(|| {
                 format_err!("missing blob in account state/account does not exist")
             })?)?;
 
@@ -530,7 +527,10 @@ impl MoveStorage for &dyn DbReader {
     fn fetch_config_by_version(&self, config_id: ConfigID, version: Version) -> Result<Vec<u8>> {
         let aptos_root_state = AccountState::try_from(
             &self
-                .get_value_with_proof_by_version(aptos_root_address(), version)?
+                .get_value_with_proof_by_version(
+                    ResourceKey::AccountAddressKey(aptos_root_address()),
+                    version,
+                )?
                 .0
                 .ok_or_else(|| {
                     format_err!("missing blob in account state/account does not exist")
@@ -592,7 +592,7 @@ pub trait DbWriter: Send + Sync {
         &self,
         version: Version,
         expected_root_hash: HashValue,
-    ) -> Result<Box<dyn StateSnapshotReceiver<AccountStateBlob>>> {
+    ) -> Result<Box<dyn StateSnapshotReceiver<ResourceValue>>> {
         unimplemented!()
     }
 }

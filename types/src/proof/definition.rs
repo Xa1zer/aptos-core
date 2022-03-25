@@ -10,6 +10,7 @@ use super::{
 use crate::{
     account_state_blob::AccountStateBlob,
     ledger_info::LedgerInfo,
+    state_store_key::ResourceValue,
     transaction::{TransactionInfo, Version},
 };
 use anyhow::{bail, ensure, format_err, Context, Result};
@@ -707,28 +708,28 @@ impl TransactionInfoWithProof {
     }
 }
 
-/// The complete proof used to authenticate the state of an account. This structure consists of the
-/// `AccumulatorProof` from `LedgerInfo` to `TransactionInfo`, the `TransactionInfo` object and the
-/// `SparseMerkleProof` from state root to the account.
+/// The complete proof used to authenticate the state of a resource in state store.
+/// This structure consists of the `AccumulatorProof` from `LedgerInfo` to `TransactionInfo`,
+/// the `TransactionInfo` object and the `SparseMerkleProof` from state root to the resource.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
-pub struct AccountStateProof {
+pub struct ResourceValueProof {
     transaction_info_with_proof: TransactionInfoWithProof,
 
     /// The sparse merkle proof from state root to the account state.
-    transaction_info_to_account_proof: SparseMerkleProof<AccountStateBlob>,
+    transaction_info_to_value_proof: SparseMerkleProof<ResourceValue>,
 }
 
-impl AccountStateProof {
+impl ResourceValueProof {
     /// Constructs a new `AccountStateProof` using given `ledger_info_to_transaction_info_proof`,
     /// `transaction_info` and `transaction_info_to_account_proof`.
     pub fn new(
         transaction_info_with_proof: TransactionInfoWithProof,
-        transaction_info_to_account_proof: SparseMerkleProof<AccountStateBlob>,
+        transaction_info_to_value_proof: SparseMerkleProof<ResourceValue>,
     ) -> Self {
-        AccountStateProof {
+        ResourceValueProof {
             transaction_info_with_proof,
-            transaction_info_to_account_proof,
+            transaction_info_to_value_proof,
         }
     }
 
@@ -738,8 +739,8 @@ impl AccountStateProof {
     }
 
     /// Returns the `transaction_info_to_account_proof` object in this proof.
-    pub fn transaction_info_to_account_proof(&self) -> &SparseMerkleProof<AccountStateBlob> {
-        &self.transaction_info_to_account_proof
+    pub fn transaction_info_to_account_proof(&self) -> &SparseMerkleProof<ResourceValue> {
+        &self.transaction_info_to_value_proof
     }
 
     /// Verifies that the state of an account at version `state_version` is correct using the
@@ -749,15 +750,15 @@ impl AccountStateProof {
         &self,
         ledger_info: &LedgerInfo,
         state_version: Version,
-        account_address_hash: HashValue,
-        account_state_blob: Option<&AccountStateBlob>,
+        value_hash: HashValue,
+        state_store_value: Option<&ResourceValue>,
     ) -> Result<()> {
-        self.transaction_info_to_account_proof.verify(
+        self.transaction_info_to_value_proof.verify(
             self.transaction_info_with_proof
                 .transaction_info
                 .state_change_hash(),
-            account_address_hash,
-            account_state_blob,
+            value_hash,
+            state_store_value,
         )?;
 
         self.transaction_info_with_proof

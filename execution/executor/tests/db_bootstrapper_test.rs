@@ -199,11 +199,7 @@ fn get_transfer_transaction(
 }
 
 fn get_balance(account: &AccountAddress, db: &DbReaderWriter) -> u64 {
-    let account_state_blob = db
-        .reader
-        .get_latest_account_state(*account)
-        .unwrap()
-        .unwrap();
+    let account_state_blob = db.reader.get_latest_value(*account).unwrap().unwrap();
     let account_state = AccountState::try_from(&account_state_blob).unwrap();
     account_state
         .get_balance_resources()
@@ -216,7 +212,7 @@ fn get_balance(account: &AccountAddress, db: &DbReaderWriter) -> u64 {
 fn get_configuration(db: &DbReaderWriter) -> ConfigurationResource {
     let config_blob = db
         .reader
-        .get_latest_account_state(config_address())
+        .get_latest_value(config_address())
         .unwrap()
         .unwrap();
     let config_state = AccountState::try_from(&config_blob).unwrap();

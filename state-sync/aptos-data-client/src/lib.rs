@@ -5,7 +5,7 @@
 
 use aptos_types::{
     ledger_info::LedgerInfoWithSignatures,
-    state_store_key::RawStateValueChunkWithProof,
+    state_store_key::ResourceValueChunkWithProof,
     transaction::{TransactionListWithProof, TransactionOutputListWithProof, Version},
 };
 use async_trait::async_trait;
@@ -78,7 +78,7 @@ pub trait AptosDataClient {
         version: u64,
         start_account_index: u64,
         end_account_index: u64,
-    ) -> Result<Response<RawStateValueChunkWithProof>>;
+    ) -> Result<Response<ResourceValueChunkWithProof>>;
 
     /// Returns all epoch ending ledger infos between start and end (inclusive).
     /// If the data cannot be fetched (e.g., the number of epochs is too large),
@@ -188,7 +188,7 @@ impl<T> Response<T> {
 /// The different data client response payloads as an enum.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ResponsePayload {
-    AccountStatesWithProof(RawStateValueChunkWithProof),
+    AccountStatesWithProof(ResourceValueChunkWithProof),
     EpochEndingLedgerInfos(Vec<LedgerInfoWithSignatures>),
     NumberOfAccountStates(u64),
     TransactionOutputsWithProof(TransactionOutputListWithProof),
@@ -209,8 +209,8 @@ impl ResponsePayload {
 
 // Conversions from the inner enum variants to the outer enum
 
-impl From<RawStateValueChunkWithProof> for ResponsePayload {
-    fn from(inner: RawStateValueChunkWithProof) -> Self {
+impl From<ResourceValueChunkWithProof> for ResponsePayload {
+    fn from(inner: ResourceValueChunkWithProof) -> Self {
         Self::AccountStatesWithProof(inner)
     }
 }

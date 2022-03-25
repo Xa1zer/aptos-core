@@ -30,13 +30,17 @@ fn put_account_state_set(
 ) -> HashValue {
     let mut cs = ChangeSet::new();
     let expected_new_leaves = account_state_set.len();
+    let value_state_set: HashMap<_, _> = account_state_set
+        .iter()
+        .map(|(address, blob)| {
+            (
+                ResourceKey::AccountAddressKey(*address),
+                ResourceValue::from(blob.clone()),
+            )
+        })
+        .collect();
     let root = store
-        .put_value_sets(
-            vec![account_state_set.into_iter().collect::<HashMap<_, _>>()],
-            None,
-            version,
-            &mut cs,
-        )
+        .put_value_sets(vec![value_state_set], None, version, &mut cs)
         .unwrap()[0];
     let bumps = cs.counter_bumps(version);
     assert_eq!(bumps.get(LedgerCounter::NewStateNodes), expected_new_nodes);
@@ -80,9 +84,12 @@ fn verify_state_in_store(
     root: HashValue,
 ) {
     let (value, proof) = store
-        .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address), version)
+        .get_value_with_proof_by_version(ResourceKey::AccountAddressKey(address), version)
         .unwrap();
-    assert_eq!(value.as_ref(), expected_value);
+    assert_eq!(
+        &AccountStateBlob::from(value.clone().unwrap()),
+        expected_value.unwrap()
+    );
     proof.verify(root, address.hash(), value.as_ref()).unwrap();
 }
 
@@ -93,7 +100,7 @@ fn test_empty_store() {
     let store = &db.state_store;
     let address = AccountAddress::new([1u8; AccountAddress::LENGTH]);
     assert!(store
-        .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address), 0)
+        .get_value_with_proof_by_version(ResourceKey::AccountAddressKey(address), 0)
         .is_err());
 }
 
@@ -211,7 +218,7 @@ fn test_retired_records() {
         );
         // root0 is gone.
         assert!(store
-            .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address2), 0)
+            .get_value_with_proof_by_version(ResourceKey::AccountAddressKey(address2), 0)
             .is_err());
         // root1 is still there.
         verify_state_in_store(store, address1, Some(&value1), 1, root1);
@@ -227,7 +234,7 @@ fn test_retired_records() {
         );
         // root1 is gone.
         assert!(store
-            .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address2), 1)
+            .get_value_with_proof_by_version(ResourceKey::AccountAddressKey(address2), 1)
             .is_err());
         // root2 is still there.
         verify_state_in_store(store, address1, Some(&value1), 2, root2);
@@ -241,7 +248,7 @@ proptest! {
 
     #[test]
     fn test_get_account_iter(
-        input in hash_map(any::<AccountAddress>(), any::<AccountStateBlob>(), 1..200)
+        input in hash_map(any::<ResourceKey>(), any::<ResourceValue>(), 1..200)
     ) {
         // Convert to a vector so iteration order becomes deterministic.
         let kvs: Vec<_> = input.into_iter().collect();
@@ -261,7 +268,7 @@ proptest! {
                 .unwrap();
             let mut expected_values: Vec<_> = kvs[..=i]
                 .iter()
-                .map(|(addr, account)| (addr.hash(), account.clone()))
+                .map(|(key, value)| (key.hash(), value.clone()))
                 .collect();
             expected_values.sort_unstable_by_key(|item| item.0);
             prop_assert_eq!(actual_values, expected_values);
@@ -270,7 +277,7 @@ proptest! {
 
     #[test]
     fn test_raw_restore(
-        (input, batch1_size) in hash_map(any::<AccountAddress>(), any::<AccountStateBlob>(), 2..1000)
+        (input, batch1_size) in hash_map(any::<ResourceKey>(), any::<ResourceValue>(), 2..1000)
             .prop_flat_map(|input| {
                 let len = input.len();
                 (Just(input), 1..len)
@@ -328,7 +335,7 @@ proptest! {
 
     #[test]
     fn test_restore(
-        (input, batch_size) in hash_map(any::<AccountAddress>(), any::<AccountStateBlob>(), 2..1000)
+        (input, batch_size) in hash_map(any::<ResourceKey>(), any::<ResourceValue>(), 2..1000)
             .prop_flat_map(|input| {
                 let len = input.len();
                 (Just(input), 1..len*2)
@@ -369,7 +376,7 @@ proptest! {
 
     #[test]
     fn test_get_rightmost_leaf(
-        (input, batch1_size) in hash_map(any::<AccountAddress>(), any::<AccountStateBlob>(), 2..1000)
+        (input, batch1_size) in hash_map(any::<ResourceKey>(), any::<ResourceValue>(), 2..1000)
             .prop_flat_map(|input| {
                 let len = input.len();
                 (Just(input), 1..len)
@@ -414,7 +421,7 @@ proptest! {
 
     #[test]
     fn test_get_account_count(
-        input in vec((any::<AccountAddress>(), any::<AccountStateBlob>()), 1..200)
+        input in vec((any::<ResourceKey>(), any::<ResourceValue>()), 1..200)
     ) {
         let version = (input.len() - 1) as Version;
         let account_count = input.iter().map(|(k, _)| k).collect::<HashSet<_>>().len();
@@ -428,21 +435,21 @@ proptest! {
 }
 
 // Initializes the state store by inserting one key at each version.
-fn init_store(store: &StateStore, input: impl Iterator<Item = (AccountAddress, AccountStateBlob)>) {
+fn init_store(store: &StateStore, input: impl Iterator<Item = (ResourceKey, ResourceValue)>) {
     update_store(store, input, 0);
 }
 
 fn update_store(
     store: &StateStore,
-    input: impl Iterator<Item = (AccountAddress, AccountStateBlob)>,
+    input: impl Iterator<Item = (ResourceKey, ResourceValue)>,
     first_version: Version,
 ) {
     for (i, (key, value)) in input.enumerate() {
         let mut cs = ChangeSet::new();
-        let account_state_set: HashMap<_, _> = std::iter::once((key, value)).collect();
+        let value_state_set: HashMap<_, _> = std::iter::once((key, value)).collect();
         store
             .put_value_sets(
-                vec![account_state_set],
+                vec![value_state_set],
                 None,
                 first_version + i as Version,
                 &mut cs,

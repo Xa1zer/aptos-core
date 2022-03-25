@@ -3,24 +3,21 @@
 
 use crate::DbReader;
 use anyhow::{format_err, Result};
-use aptos_crypto::{hash::SPARSE_MERKLE_PLACEHOLDER_HASH, HashValue};
+use aptos_crypto::{
+    hash::{CryptoHash, SPARSE_MERKLE_PLACEHOLDER_HASH},
+    HashValue,
+};
 use aptos_state_view::{StateView, StateViewId};
-use aptos_types::state_store_key::{StateStoreKey, StateStoreValue};
 use aptos_types::{
     access_path::AccessPath,
-    account_address::{AccountAddress, HashAccountAddress},
     account_state::AccountState,
-    account_state_blob::AccountStateBlob,
     proof::SparseMerkleProof,
+    state_store_key::{ResourceKey, ResourceValue},
     transaction::{Version, PRE_GENESIS_VERSION},
 };
 use parking_lot::RwLock;
-use scratchpad::{AccountStatus, FrozenSparseMerkleTree, SparseMerkleTree};
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    convert::TryInto,
-    sync::Arc,
-};
+use scratchpad::{FrozenSparseMerkleTree, SparseMerkleTree, StateStoreStatus};
+use std::{collections::HashMap, convert::TryFrom, sync::Arc};
 
 /// `VerifiedStateView` is like a snapshot of the global state comprised of state view at two
 /// levels, persistent storage and memory.
@@ -39,7 +36,7 @@ pub struct VerifiedStateView {
     latest_persistent_state_root: HashValue,
 
     /// The in-momery version of sparse Merkle tree of which the states haven't been committed.
-    speculative_state: FrozenSparseMerkleTree<StateStoreValue>,
+    speculative_state: FrozenSparseMerkleTree<ResourceValue>,
 
     /// The cache of verified account states from `reader` and `speculative_state_view`,
     /// represented by a hashmap with an account address as key and a pair of an ordered
@@ -77,10 +74,10 @@ pub struct VerifiedStateView {
     ///        | +------------------------------+ +--------------------+ |
     ///        +---------------------------------------------------------+
     /// ```
-    state_cache: RwLock<HashMap<StateStoreKey, StateStoreValue>>,
+    state_cache: RwLock<HashMap<ResourceKey, ResourceValue>>,
     /// TODO(skedia): This is very account related logic, that needs to be moved out of storage layer.
     /// Will be addressed in a follow up diff.
-    state_proof_cache: RwLock<HashMap<HashValue, SparseMerkleProof<StateStoreValue>>>,
+    state_proof_cache: RwLock<HashMap<HashValue, SparseMerkleProof<ResourceValue>>>,
 }
 
 impl VerifiedStateView {
@@ -92,7 +89,7 @@ impl VerifiedStateView {
         reader: Arc<dyn DbReader>,
         latest_persistent_version: Option<Version>,
         latest_persistent_state_root: HashValue,
-        speculative_state: SparseMerkleTree<StateStoreValue>,
+        speculative_state: SparseMerkleTree<ResourceValue>,
     ) -> Self {
         // Hack: When there's no transaction in the db but state tree root hash is not the
         // placeholder hash, it implies that there's pre-genesis state present.
@@ -124,9 +121,9 @@ impl VerifiedStateView {
 }
 
 pub struct StateCache {
-    pub frozen_base: FrozenSparseMerkleTree<StateStoreValue>,
-    pub state: HashMap<StateStoreKey, StateStoreValue>,
-    pub proofs: HashMap<HashValue, SparseMerkleProof<StateStoreValue>>,
+    pub frozen_base: FrozenSparseMerkleTree<ResourceValue>,
+    pub state: HashMap<ResourceKey, ResourceValue>,
+    pub proofs: HashMap<HashValue, SparseMerkleProof<ResourceValue>>,
 }
 
 impl StateView for VerifiedStateView {
@@ -137,37 +134,39 @@ impl StateView for VerifiedStateView {
     fn get(&self, access_path: &AccessPath) -> Result<Option<Vec<u8>>> {
         let address = access_path.address;
         let path = &access_path.path;
+        let state_store_key = ResourceKey::AccountAddressKey(address);
 
         // Lock for read first:
-        if let Some(contents) = self
+        if let Some(content) = self
             .state_cache
             .read()
-            .get(&StateStoreKey::AccountAddressKey(address))
+            .get(&ResourceKey::AccountAddressKey(address))
         {
-            let x = AccountState::from(contents);
-            let y = x.get(path);
-            return Ok(x.get(path).map(|x| *x));
+            return Ok(AccountState::try_from(content)
+                .unwrap_or_default()
+                .get(path)
+                .cloned());
         }
 
         // Do most of the work outside the write lock.
-        let address_hash = address.hash();
-        let account_blob_option = match self.speculative_state.get(address_hash) {
-            AccountStatus::ExistsInScratchPad(blob) => Some(blob),
-            AccountStatus::DoesNotExist => None,
+        let key_hash = state_store_key.hash();
+        let state_store_value_option = match self.speculative_state.get(key_hash) {
+            StateStoreStatus::ExistsInScratchPad(blob) => Some(blob),
+            StateStoreStatus::DoesNotExist => None,
             // No matter it is in db or unknown, we have to query from db since even the
             // former case, we don't have the blob data but only its hash.
-            AccountStatus::ExistsInDB | AccountStatus::Unknown => {
-                let (blob, proof) = match self.latest_persistent_version {
+            StateStoreStatus::ExistsInDB | StateStoreStatus::Unknown => {
+                let (state_store_value, proof) = match self.latest_persistent_version {
                     Some(version) => self
                         .reader
-                        .get_value_with_proof_by_version(address, version)?,
+                        .get_value_with_proof_by_version(state_store_key.clone(), version)?,
                     None => (None, SparseMerkleProof::new(None, vec![])),
                 };
                 proof
                     .verify(
                         self.latest_persistent_state_root,
-                        address.hash(),
-                        blob.as_ref(),
+                        key_hash,
+                        state_store_value.as_ref(),
                     )
                     .map_err(|err| {
                         format_err!(
@@ -180,23 +179,20 @@ impl StateView for VerifiedStateView {
 
                 // multiple threads may enter this code, and another thread might add
                 // an address before this one. Thus the insertion might return a None here.
-                self.state_proof_cache.write().insert(address_hash, proof);
+                self.state_proof_cache.write().insert(key_hash, proof);
 
-                blob
+                state_store_value
             }
         };
 
-        // Now enter the locked region, and write if still empty.
-        let new_account_blob = account_blob_option
-            .as_ref()
-            .map(TryInto::try_into)
-            .transpose()?
-            .unwrap_or_default();
-
-        match self.state_cache.write().entry(address) {
-            Entry::Occupied(occupied) => Ok(occupied.get().get(path).cloned()),
-            Entry::Vacant(vacant) => Ok(vacant.insert(new_account_blob).get(path).cloned()),
-        }
+        let mut state_cache = self.state_cache.write();
+        let state_store_value = state_cache
+            .entry(state_store_key)
+            .or_insert_with(|| state_store_value_option.unwrap_or_default());
+        Ok(AccountState::try_from(&*state_store_value)
+            .unwrap_or_default()
+            .get(path)
+            .cloned())
     }
 
     fn is_genesis(&self) -> bool {

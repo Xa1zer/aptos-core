@@ -12,7 +12,7 @@ use aptos_types::{
     epoch_change::Verifier,
     epoch_state::EpochState,
     ledger_info::LedgerInfoWithSignatures,
-    state_store_key::RawStateValueChunkWithProof,
+    state_store_key::ResourceValueChunkWithProof,
     transaction::{
         TransactionInfo, TransactionListWithProof, TransactionOutputListWithProof, Version,
     },
@@ -678,7 +678,7 @@ impl<StorageSyncer: StorageSynchronizerInterface + Clone> Bootstrapper<StorageSy
     async fn verify_account_states_indices(
         &mut self,
         notification_id: NotificationId,
-        account_states_chunk_with_proof: &RawStateValueChunkWithProof,
+        account_states_chunk_with_proof: &ResourceValueChunkWithProof,
     ) -> Result<(), Error> {
         // Verify the payload start index is valid
         let expected_start_index = self.account_state_syncer.next_account_index_to_process;
@@ -733,7 +733,7 @@ impl<StorageSyncer: StorageSynchronizerInterface + Clone> Bootstrapper<StorageSy
     async fn process_account_states_payload(
         &mut self,
         notification_id: NotificationId,
-        account_states_chunk_with_proof: RawStateValueChunkWithProof,
+        account_states_chunk_with_proof: ResourceValueChunkWithProof,
     ) -> Result<(), Error> {
         // Verify that we're expecting account payloads
         let bootstrapping_mode = self.driver_configuration.config.bootstrapping_mode;

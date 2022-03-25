@@ -110,7 +110,7 @@ pub fn get_account_sequence_number(
             "Injected error in get_account_sequence_number"
         ))
     });
-    match storage.get_latest_account_state(address)? {
+    match storage.get_latest_value(address)? {
         Some(blob) => {
             if let Ok(Some(crsn)) = AccountState::try_from(&blob)?.get_crsn_resource() {
                 return Ok(AccountSequenceInfo::CRSN {

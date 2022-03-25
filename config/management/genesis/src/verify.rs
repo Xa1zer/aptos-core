@@ -240,7 +240,7 @@ fn validator_config(
     reader: Arc<dyn DbReader>,
 ) -> Result<ValidatorConfig, Error> {
     let blob = reader
-        .get_latest_account_state(account_config::validator_set_address())
+        .get_latest_value(account_config::validator_set_address())
         .map_err(|e| {
             Error::UnexpectedError(format!("ValidatorSet Account issue {}", e.to_string()))
         })?

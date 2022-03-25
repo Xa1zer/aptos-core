@@ -12,6 +12,7 @@ use aptos_types::{
     move_resource::MoveStorage,
     on_chain_config,
     on_chain_config::{config_address, ConfigID, OnChainConfigPayload},
+    state_store_key::ResourceKey,
     transaction::Version,
 };
 use channel::{aptos_channel, message_queues::QueueStyle};
@@ -287,7 +288,10 @@ impl EventSubscriptionService {
             .storage
             .read()
             .reader
-            .get_value_with_proof_by_version(config_address(), version)
+            .get_value_with_proof_by_version(
+                ResourceKey::AccountAddressKey(config_address()),
+                version,
+            )
             .map_err(|error| {
                 Error::UnexpectedErrorEncountered(format!(
                     "Failed to fetch account state with proof {:?}",

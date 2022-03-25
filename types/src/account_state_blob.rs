@@ -1,16 +1,13 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::state_store_key::StateStoreValue;
 use crate::{
-    account_address::{AccountAddress, HashAccountAddress},
+    account_address::HashAccountAddress,
     account_config::{AccountResource, BalanceResource, DiemAccountResource},
     account_state::AccountState,
-    ledger_info::LedgerInfo,
-    proof::AccountStateProof,
-    transaction::Version,
+    state_store_key::ResourceValue,
 };
-use anyhow::{anyhow, ensure, Error, Result};
+use anyhow::{anyhow, Error, Result};
 use aptos_crypto::{
     hash::{CryptoHash, CryptoHasher},
     HashValue,
@@ -18,8 +15,6 @@ use aptos_crypto::{
 use aptos_crypto_derive::CryptoHasher;
 #[cfg(any(test, feature = "fuzzing"))]
 use proptest::{arbitrary::Arbitrary, prelude::*};
-#[cfg(any(test, feature = "fuzzing"))]
-use proptest_derive::Arbitrary;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{convert::TryFrom, fmt};
 
@@ -105,9 +100,9 @@ impl TryFrom<&AccountState> for AccountStateBlob {
     }
 }
 
-impl From<&StateStoreValue> for AccountStateBlob {
-    fn from(state_store_value: &StateStoreValue) -> Self {
-        AccountStateBlob::from(state_store_value.bytes.clone())
+impl From<ResourceValue> for AccountStateBlob {
+    fn from(state_store_value: ResourceValue) -> Self {
+        AccountStateBlob::from(state_store_value.bytes)
     }
 }
 
@@ -174,56 +169,10 @@ impl Arbitrary for AccountStateBlob {
     type Strategy = BoxedStrategy<Self>;
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(any(test, feature = "fuzzing"), derive(Arbitrary))]
-pub struct AccountStateWithProof {
-    /// The transaction version at which this account state is seen.
-    pub version: Version,
-    /// Blob value representing the account state. If this field is not set, it
-    /// means the account does not exist.
-    pub blob: Option<AccountStateBlob>,
-    /// The proof the client can use to authenticate the value.
-    pub proof: AccountStateProof,
-}
-
-impl AccountStateWithProof {
-    /// Constructor.
-    pub fn new(version: Version, blob: Option<AccountStateBlob>, proof: AccountStateProof) -> Self {
-        Self {
-            version,
-            blob,
-            proof,
-        }
-    }
-
-    /// Verifies the the account state blob with the proof, both carried by `self`.
-    ///
-    /// Two things are ensured if no error is raised:
-    ///   1. This account state exists in the ledger represented by `ledger_info`.
-    ///   2. It belongs to account of `address` and is seen at the time the transaction at version
-    /// `state_version` is just committed. To make sure this is the latest state, pass in
-    /// `ledger_info.version()` as `state_version`.
-    pub fn verify(
-        &self,
-        ledger_info: &LedgerInfo,
-        version: Version,
-        address: AccountAddress,
-    ) -> Result<()> {
-        ensure!(
-            self.version == version,
-            "State version ({}) is not expected ({}).",
-            self.version,
-            version,
-        );
-
-        self.proof
-            .verify(ledger_info, version, address.hash(), self.blob.as_ref())
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{AccountStateWithProof, *};
+    use super::*;
+    use crate::state_store_key::ResourceValueWithProof;
     use bcs::test_helpers::assert_canonical_encode_decode;
     use proptest::collection::vec;
 
@@ -245,7 +194,7 @@ mod tests {
         }
 
         #[test]
-        fn account_state_with_proof_bcs_roundtrip(account_state_with_proof in any::<AccountStateWithProof>()) {
+        fn account_state_with_proof_bcs_roundtrip(account_state_with_proof in any::<ResourceValueWithProof>()) {
             assert_canonical_encode_decode(account_state_with_proof);
         }
     }

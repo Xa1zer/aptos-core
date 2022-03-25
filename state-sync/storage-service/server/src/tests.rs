@@ -17,7 +17,7 @@ use aptos_types::{
     event::EventKey,
     ledger_info::{LedgerInfo, LedgerInfoWithSignatures},
     proof::{SparseMerkleRangeProof, TransactionInfoListWithProof},
-    state_store_key::RawStateValueChunkWithProof,
+    state_store_key::ResourceValueChunkWithProof,
     transaction::{
         RawTransaction, Script, SignedTransaction, Transaction, TransactionListWithProof,
         TransactionOutput, TransactionOutputListWithProof, TransactionPayload, TransactionStatus,
@@ -98,7 +98,7 @@ async fn test_get_account_states_chunk_with_proof() {
         account_blobs.push((HashValue::zero(), vec![].into()));
     }
     let expected_response =
-        StorageServiceResponse::AccountStatesChunkWithProof(RawStateValueChunkWithProof {
+        StorageServiceResponse::AccountStatesChunkWithProof(ResourceValueChunkWithProof {
             first_index: start_account_index,
             last_index: end_account_index,
             first_key: HashValue::zero(),
@@ -527,7 +527,7 @@ impl DbReader for MockDbReader {
         _version: Version,
         start_idx: usize,
         chunk_size: usize,
-    ) -> Result<RawStateValueChunkWithProof> {
+    ) -> Result<ResourceValueChunkWithProof> {
         // Create empty account blobs
         let mut account_blobs = vec![];
         for _ in 0..chunk_size {
@@ -535,7 +535,7 @@ impl DbReader for MockDbReader {
         }
 
         // Create an account states chunk with proof
-        let account_states_chunk_with_proof = RawStateValueChunkWithProof {
+        let account_states_chunk_with_proof = ResourceValueChunkWithProof {
             first_index: start_idx as u64,
             last_index: (start_idx + chunk_size - 1) as u64,
             first_key: HashValue::zero(),

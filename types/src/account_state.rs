@@ -1,8 +1,6 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::account_state_blob::AccountStateBlob;
-use crate::state_store_key::StateStoreValue;
 use crate::{
     access_path::Path,
     account_address::AccountAddress,
@@ -12,11 +10,13 @@ use crate::{
         DesignatedDealerPreburns, DiemAccountResource, FreezingBit, ParentVASP,
         PreburnQueueResource, PreburnResource,
     },
+    account_state_blob::AccountStateBlob,
     block_metadata::BlockResource,
     on_chain_config::{
         access_path_for_config, dpn_access_path_for_config, ConfigurationResource, OnChainConfig,
         RegisteredCurrencies, VMPublishingOption, ValidatorSet, Version,
     },
+    state_store_key::ResourceValue,
     timestamp::TimestampResource,
     validator_config::{ValidatorConfigResource, ValidatorOperatorConfigResource},
 };
@@ -339,9 +339,11 @@ impl fmt::Debug for AccountState {
     }
 }
 
-impl From<&StateStoreValue> for AccountState {
-    fn from(state_store_value: &StateStoreValue) -> Self {
-        AccountState::try_from(&AccountStateBlob::from(state_store_value)).unwrap_or_default()
+impl TryFrom<&ResourceValue> for AccountState {
+    type Error = Error;
+
+    fn try_from(state_store_value: &ResourceValue) -> Result<Self> {
+        AccountState::try_from(&state_store_value.bytes)
     }
 }
 
@@ -350,6 +352,14 @@ impl TryFrom<&AccountStateBlob> for AccountState {
 
     fn try_from(account_state_blob: &AccountStateBlob) -> Result<Self> {
         bcs::from_bytes(&account_state_blob.blob).map_err(Into::into)
+    }
+}
+
+impl TryFrom<&Vec<u8>> for AccountState {
+    type Error = Error;
+
+    fn try_from(blob: &Vec<u8>) -> Result<Self> {
+        bcs::from_bytes(blob).map_err(Into::into)
     }
 }
 

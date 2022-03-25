@@ -32,7 +32,7 @@ prop_compose! {
         type EventAccumulator = InMemoryAccumulator<EventAccumulatorHasher>;
         type TxnAccumulator = InMemoryAccumulator<TransactionAccumulatorHasher>;
 
-        let mut smt = SparseMerkleTree::<AccountStateBlob>::default().freeze();
+        let mut smt = SparseMerkleTree::<ResourceValue>::default().freeze();
         let mut txn_accumulator = TxnAccumulator::new_empty();
         let mut result = Vec::new();
 
@@ -52,8 +52,10 @@ prop_compose! {
                     None
                 } else {
                     let updates: Vec<_> = txn.account_states().iter().map(|(addr, blob)| {
-                            ( HashAccountAddress::hash(addr), blob )
+                            ( HashAccountAddress::hash(addr), ResourceValue::from(blob.clone()))
                     }).collect();
+
+                    let updates = updates.iter().map(|(hash, value)| {(*hash, value)}).collect();
 
                     smt = smt.batch_update(updates, &ProofReader::new_empty()).unwrap();
 

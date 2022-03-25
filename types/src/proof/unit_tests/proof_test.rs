@@ -12,7 +12,7 @@ use crate::{
     event::EventKey,
     ledger_info::LedgerInfo,
     proof::{
-        definition::{AccountStateProof, EventProof, MAX_ACCUMULATOR_PROOF_DEPTH},
+        definition::{EventProof, ResourceValueProof, MAX_ACCUMULATOR_PROOF_DEPTH},
         AccumulatorExtensionProof, AccumulatorRangeProof, EventAccumulatorInternalNode,
         EventAccumulatorProof, SparseMerkleInternalNode, SparseMerkleLeafNode,
         TestAccumulatorInternalNode, TestAccumulatorProof, TransactionAccumulatorInternalNode,
@@ -314,7 +314,7 @@ fn test_verify_transaction() {
 }
 
 #[test]
-fn test_verify_account_state_and_event() {
+fn test_verify_state_store_resource_and_event() {
     //                  root
     //                 /     \
     //               /         \
@@ -411,7 +411,7 @@ fn test_verify_account_state_and_event() {
         Some(leaf2),
         vec![leaf3_hash, leaf1_hash, *SPARSE_MERKLE_PLACEHOLDER_HASH],
     );
-    let account_state_proof = AccountStateProof::new(
+    let account_state_proof = ResourceValueProof::new(
         TransactionInfoWithProof::new(
             ledger_info_to_transaction_info_proof.clone(),
             txn_info2.clone(),

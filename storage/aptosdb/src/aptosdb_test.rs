@@ -539,12 +539,19 @@ fn verify_committed_transactions(
 
         // Fetch and verify account states.
         for (addr, expected_blob) in txn_to_commit.account_states() {
-            let account_state_with_proof = db
-                .get_account_state_with_proof(*addr, cur_ver, ledger_version)
+            let resource_value_with_proof = db
+                .get_value_with_proof(
+                    ResourceKey::AccountAddressKey(*addr),
+                    cur_ver,
+                    ledger_version,
+                )
                 .unwrap();
-            assert_eq!(account_state_with_proof.blob, Some(expected_blob.clone()));
-            account_state_with_proof
-                .verify(ledger_info, cur_ver, *addr)
+            assert_eq!(
+                resource_value_with_proof.value,
+                Some(ResourceValue::from(expected_blob.clone()))
+            );
+            resource_value_with_proof
+                .verify(ledger_info, cur_ver, ResourceKey::AccountAddressKey(*addr))
                 .unwrap();
         }
 
@@ -637,10 +644,17 @@ fn test_get_latest_tree_state() {
     db.db
         .put::<JellyfishMerkleNodeSchema>(
             &NodeKey::new_empty_path(PRE_GENESIS_VERSION),
-            &Node::new_leaf(address.hash(), blob.clone()),
+            &Node::new_leaf(
+                ResourceKey::AccountAddressKey(address).hash(),
+                ResourceValue::from(blob.clone()),
+            ),
         )
         .unwrap();
-    let hash = SparseMerkleLeafNode::new(address.hash(), blob.hash()).hash();
+    let hash = SparseMerkleLeafNode::new(
+        ResourceKey::AccountAddressKey(address).hash(),
+        ResourceValue::from(blob).hash(),
+    )
+    .hash();
     let pre_genesis = db.get_latest_tree_state().unwrap();
     assert_eq!(pre_genesis, TreeState::new(0, vec![], hash));
 
