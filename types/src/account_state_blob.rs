@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::state_store_key::StateStoreValue;
 use crate::{
     account_address::{AccountAddress, HashAccountAddress},
     account_config::{AccountResource, BalanceResource, DiemAccountResource},
@@ -24,7 +25,7 @@ use std::{convert::TryFrom, fmt};
 
 #[derive(Clone, Eq, PartialEq, Serialize, CryptoHasher)]
 pub struct AccountStateBlob {
-    blob: Vec<u8>,
+    pub blob: Vec<u8>,
     #[serde(skip)]
     hash: HashValue,
 }
@@ -104,11 +105,9 @@ impl TryFrom<&AccountState> for AccountStateBlob {
     }
 }
 
-impl TryFrom<&AccountStateBlob> for AccountState {
-    type Error = Error;
-
-    fn try_from(account_state_blob: &AccountStateBlob) -> Result<Self> {
-        bcs::from_bytes(&account_state_blob.blob).map_err(Into::into)
+impl From<&StateStoreValue> for AccountStateBlob {
+    fn from(state_store_value: &StateStoreValue) -> Self {
+        AccountStateBlob::from(state_store_value.bytes.clone())
     }
 }
 

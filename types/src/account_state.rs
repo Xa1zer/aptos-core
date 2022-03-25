@@ -1,6 +1,8 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::account_state_blob::AccountStateBlob;
+use crate::state_store_key::StateStoreValue;
 use crate::{
     access_path::Path,
     account_address::AccountAddress,
@@ -334,6 +336,20 @@ impl fmt::Debug for AccountState {
              }}",
             account_resource_str, timestamp_str, validator_config_str, validator_set_str,
         )
+    }
+}
+
+impl From<&StateStoreValue> for AccountState {
+    fn from(state_store_value: &StateStoreValue) -> Self {
+        AccountState::try_from(&AccountStateBlob::from(state_store_value)).unwrap_or_default()
+    }
+}
+
+impl TryFrom<&AccountStateBlob> for AccountState {
+    type Error = Error;
+
+    fn try_from(account_state_blob: &AccountStateBlob) -> Result<Self> {
+        bcs::from_bytes(&account_state_blob.blob).map_err(Into::into)
     }
 }
 

@@ -80,7 +80,7 @@ pub struct VerifiedStateView {
     state_cache: RwLock<HashMap<StateStoreKey, StateStoreValue>>,
     /// TODO(skedia): This is very account related logic, that needs to be moved out of storage layer.
     /// Will be addressed in a follow up diff.
-    account_to_proof_cache: RwLock<HashMap<HashValue, SparseMerkleProof<StateStoreValue>>>,
+    state_proof_cache: RwLock<HashMap<HashValue, SparseMerkleProof<StateStoreValue>>>,
 }
 
 impl VerifiedStateView {
@@ -110,7 +110,7 @@ impl VerifiedStateView {
             latest_persistent_state_root,
             speculative_state: speculative_state.freeze(),
             state_cache: RwLock::new(HashMap::new()),
-            account_to_proof_cache: RwLock::new(HashMap::new()),
+            state_proof_cache: RwLock::new(HashMap::new()),
         }
     }
 
@@ -118,7 +118,7 @@ impl VerifiedStateView {
         StateCache {
             frozen_base: self.speculative_state,
             state: self.state_cache.into_inner(),
-            proofs: self.account_to_proof_cache.into_inner(),
+            proofs: self.state_proof_cache.into_inner(),
         }
     }
 }
@@ -144,7 +144,9 @@ impl StateView for VerifiedStateView {
             .read()
             .get(&StateStoreKey::AccountAddressKey(address))
         {
-            return Ok(contents.get(path).cloned());
+            let x = AccountState::from(contents);
+            let y = x.get(path);
+            return Ok(x.get(path).map(|x| *x));
         }
 
         // Do most of the work outside the write lock.
@@ -178,9 +180,7 @@ impl StateView for VerifiedStateView {
 
                 // multiple threads may enter this code, and another thread might add
                 // an address before this one. Thus the insertion might return a None here.
-                self.account_to_proof_cache
-                    .write()
-                    .insert(address_hash, proof);
+                self.state_proof_cache.write().insert(address_hash, proof);
 
                 blob
             }

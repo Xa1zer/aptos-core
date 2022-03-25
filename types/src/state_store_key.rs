@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::account_state::AccountState;
 use crate::{account_state_blob::AccountStateBlob, proof::SparseMerkleRangeProof};
 use aptos_crypto::{
     hash::{CryptoHash, CryptoHasher},
@@ -9,6 +10,7 @@ use aptos_crypto::{
 use aptos_crypto_derive::CryptoHasher;
 use move_core_types::account_address::AccountAddress;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 
 const ACCOUNT_ADDRESS_KEY_PREFIX: &str = "acc_blb_|";
 
@@ -21,7 +23,7 @@ pub enum StateStoreKey {
 
 #[derive(Clone, Debug, CryptoHasher, Eq, PartialEq, Serialize, Deserialize)]
 pub struct StateStoreValue {
-    bytes: Vec<u8>,
+    pub bytes: Vec<u8>,
 }
 
 struct RawStateKey {
@@ -41,8 +43,6 @@ impl From<&StateStoreKey> for RawStateKey {
         }
     }
 }
-
-impl From<StateStoreValue> for AccountStateBlob {}
 
 impl CryptoHash for StateStoreKey {
     type Hasher = StateStoreKeyHasher;
