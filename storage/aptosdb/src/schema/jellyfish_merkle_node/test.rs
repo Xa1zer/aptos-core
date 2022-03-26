@@ -4,7 +4,6 @@
 use super::*;
 use aptos_crypto::HashValue;
 use aptos_jellyfish_merkle::node_type::Node;
-use aptos_types::account_state_blob::AccountStateBlob;
 use proptest::prelude::*;
 use schemadb::{schema::fuzzing::assert_encode_decode, test_no_panic_decoding};
 
@@ -13,7 +12,7 @@ proptest! {
     fn test_jellyfish_merkle_node_schema(
         node_key in any::<NodeKey>(),
         account_key in any::<HashValue>(),
-        value in any::<ResourceValue>(),
+        value in any::<StateStoreValue>(),
     ) {
         assert_encode_decode::<JellyfishMerkleNodeSchema>(
             &node_key,

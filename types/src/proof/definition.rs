@@ -8,9 +8,8 @@ use super::{
     MerkleTreeInternalNode, SparseMerkleInternalNode, SparseMerkleLeafNode,
 };
 use crate::{
-    account_state_blob::AccountStateBlob,
     ledger_info::LedgerInfo,
-    state_store_key::ResourceValue,
+    state_store::state_store_value::StateStoreValue,
     transaction::{TransactionInfo, Version},
 };
 use anyhow::{bail, ensure, format_err, Context, Result};
@@ -717,7 +716,7 @@ pub struct ResourceValueProof {
     transaction_info_with_proof: TransactionInfoWithProof,
 
     /// The sparse merkle proof from state root to the account state.
-    transaction_info_to_value_proof: SparseMerkleProof<ResourceValue>,
+    transaction_info_to_value_proof: SparseMerkleProof<StateStoreValue>,
 }
 
 impl ResourceValueProof {
@@ -725,7 +724,7 @@ impl ResourceValueProof {
     /// `transaction_info` and `transaction_info_to_account_proof`.
     pub fn new(
         transaction_info_with_proof: TransactionInfoWithProof,
-        transaction_info_to_value_proof: SparseMerkleProof<ResourceValue>,
+        transaction_info_to_value_proof: SparseMerkleProof<StateStoreValue>,
     ) -> Self {
         ResourceValueProof {
             transaction_info_with_proof,
@@ -739,7 +738,7 @@ impl ResourceValueProof {
     }
 
     /// Returns the `transaction_info_to_account_proof` object in this proof.
-    pub fn transaction_info_to_account_proof(&self) -> &SparseMerkleProof<ResourceValue> {
+    pub fn transaction_info_to_account_proof(&self) -> &SparseMerkleProof<StateStoreValue> {
         &self.transaction_info_to_value_proof
     }
 
@@ -751,7 +750,7 @@ impl ResourceValueProof {
         ledger_info: &LedgerInfo,
         state_version: Version,
         value_hash: HashValue,
-        state_store_value: Option<&ResourceValue>,
+        state_store_value: Option<&StateStoreValue>,
     ) -> Result<()> {
         self.transaction_info_to_value_proof.verify(
             self.transaction_info_with_proof

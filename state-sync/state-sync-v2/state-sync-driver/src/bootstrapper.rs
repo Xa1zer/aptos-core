@@ -12,7 +12,7 @@ use aptos_types::{
     epoch_change::Verifier,
     epoch_state::EpochState,
     ledger_info::LedgerInfoWithSignatures,
-    state_store_key::ResourceValueChunkWithProof,
+    state_store::state_store_value::StateStoreValueChunkWithProof,
     transaction::{
         TransactionInfo, TransactionListWithProof, TransactionOutputListWithProof, Version,
     },
@@ -678,28 +678,28 @@ impl<StorageSyncer: StorageSynchronizerInterface + Clone> Bootstrapper<StorageSy
     async fn verify_account_states_indices(
         &mut self,
         notification_id: NotificationId,
-        account_states_chunk_with_proof: &ResourceValueChunkWithProof,
+        value_chunk_with_proof: &StateStoreValueChunkWithProof,
     ) -> Result<(), Error> {
         // Verify the payload start index is valid
         let expected_start_index = self.account_state_syncer.next_account_index_to_process;
-        if expected_start_index != account_states_chunk_with_proof.first_index {
+        if expected_start_index != value_chunk_with_proof.first_index {
             self.terminate_active_stream(notification_id, NotificationFeedback::InvalidPayloadData)
                 .await?;
             return Err(Error::VerificationError(format!(
                 "The start index of the account states was invalid! Expected: {:?}, received: {:?}",
-                expected_start_index, account_states_chunk_with_proof.first_index
+                expected_start_index, value_chunk_with_proof.first_index
             )));
         }
 
         // Verify the number of account blobs is valid
-        let expected_num_accounts = account_states_chunk_with_proof
+        let expected_num_accounts = value_chunk_with_proof
             .last_index
-            .checked_sub(account_states_chunk_with_proof.first_index)
+            .checked_sub(value_chunk_with_proof.first_index)
             .and_then(|version| version.checked_add(1)) // expected_num_accounts = last_index - first_index + 1
             .ok_or_else(|| {
                 Error::IntegerOverflow("The expected number of accounts has overflown!".into())
             })?;
-        let num_accounts = account_states_chunk_with_proof.raw_values.len() as u64;
+        let num_accounts = value_chunk_with_proof.raw_values.len() as u64;
         if expected_num_accounts != num_accounts {
             self.terminate_active_stream(notification_id, NotificationFeedback::InvalidPayloadData)
                 .await?;
@@ -710,19 +710,19 @@ impl<StorageSyncer: StorageSynchronizerInterface + Clone> Bootstrapper<StorageSy
         }
 
         // Verify the payload end index is valid
-        let expected_end_index = account_states_chunk_with_proof
+        let expected_end_index = value_chunk_with_proof
             .first_index
             .checked_add(num_accounts)
             .and_then(|version| version.checked_sub(1)) // expected_end_index = first_index + num_accounts - 1
             .ok_or_else(|| {
                 Error::IntegerOverflow("The expected end of index has overflown!".into())
             })?;
-        if expected_end_index != account_states_chunk_with_proof.last_index {
+        if expected_end_index != value_chunk_with_proof.last_index {
             self.terminate_active_stream(notification_id, NotificationFeedback::InvalidPayloadData)
                 .await?;
             return Err(Error::VerificationError(format!(
                 "The expected end index was invalid! Expected: {:?}, received: {:?}",
-                expected_num_accounts, account_states_chunk_with_proof.last_index,
+                expected_num_accounts, value_chunk_with_proof.last_index,
             )));
         }
 
@@ -733,7 +733,7 @@ impl<StorageSyncer: StorageSynchronizerInterface + Clone> Bootstrapper<StorageSy
     async fn process_account_states_payload(
         &mut self,
         notification_id: NotificationId,
-        account_states_chunk_with_proof: ResourceValueChunkWithProof,
+        value_chunk_with_proof: StateStoreValueChunkWithProof,
     ) -> Result<(), Error> {
         // Verify that we're expecting account payloads
         let bootstrapping_mode = self.driver_configuration.config.bootstrapping_mode;
@@ -763,7 +763,7 @@ impl<StorageSyncer: StorageSynchronizerInterface + Clone> Bootstrapper<StorageSy
                 .expect("Account state syncer version not initialized!")
                 .ledger_info()
                 .version();
-            let expected_root_hash = account_states_chunk_with_proof.root_hash;
+            let expected_root_hash = value_chunk_with_proof.root_hash;
             self.storage_synchronizer.initialize_account_synchronizer(
                 expected_root_hash,
                 version,
@@ -774,16 +774,16 @@ impl<StorageSyncer: StorageSynchronizerInterface + Clone> Bootstrapper<StorageSy
         }
 
         // Verify the account payload start and end indices
-        self.verify_account_states_indices(notification_id, &account_states_chunk_with_proof)
+        self.verify_account_states_indices(notification_id, &value_chunk_with_proof)
             .await?;
 
         // TODO(joshlind): Verify the sparse merkle tree proof is valid!
 
         // Process the account states chunk and proof
-        let last_account_index = account_states_chunk_with_proof.last_index;
+        let last_account_index = value_chunk_with_proof.last_index;
         if let Err(error) = self
             .storage_synchronizer
-            .save_account_states(notification_id, account_states_chunk_with_proof)
+            .save_account_states(notification_id, value_chunk_with_proof)
         {
             self.terminate_active_stream(notification_id, NotificationFeedback::InvalidPayloadData)
                 .await?;

@@ -11,6 +11,7 @@ use aptos_types::{
         EventProof, ResourceValueProof, SparseMerkleProof, TestAccumulatorProof,
         TestAccumulatorRangeProof, TransactionInfoListWithProof, TransactionInfoWithProof,
     },
+    state_store::state_store_value::StateStoreValue,
     transaction::Version,
 };
 use proptest::prelude::*;
@@ -166,7 +167,7 @@ impl FuzzTargetImpl for AccountStateProofFuzzer {
             &input.ledger_info,
             input.state_version,
             input.account_address_hash,
-            input.account_state_blob.as_ref(),
+            input.account_state_blob.map(StateStoreValue::from).as_ref(),
         );
     }
 }

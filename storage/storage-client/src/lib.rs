@@ -8,16 +8,15 @@ use aptos_infallible::Mutex;
 use aptos_logger::warn;
 use aptos_secure_net::NetworkClient;
 use aptos_types::{
-    account_address::AccountAddress,
-    account_state_blob::AccountStateBlob,
     ledger_info::LedgerInfoWithSignatures,
     proof::SparseMerkleProof,
+    state_store::{state_store_key::StateStoreKey, state_store_value::StateStoreValue},
     transaction::{TransactionToCommit, Version},
 };
 use serde::de::DeserializeOwned;
 use std::net::SocketAddr;
 use storage_interface::{
-    DbReader, DbWriter, Error, GetAccountStateWithProofByVersionRequest, SaveTransactionsRequest,
+    DbReader, DbWriter, Error, GetResourceValueWithProofByVersionRequest, SaveTransactionsRequest,
     StartupInfo, StorageRequest,
 };
 
@@ -55,18 +54,14 @@ impl StorageClient {
 
     pub fn get_account_state_with_proof_by_version(
         &self,
-        address: AccountAddress,
+        state_store_key: StateStoreKey,
         version: Version,
-    ) -> std::result::Result<
-        (
-            Option<AccountStateBlob>,
-            SparseMerkleProof<AccountStateBlob>,
-        ),
-        Error,
-    > {
-        self.request(StorageRequest::GetAccountStateWithProofByVersionRequest(
-            Box::new(GetAccountStateWithProofByVersionRequest::new(
-                address, version,
+    ) -> std::result::Result<(Option<StateStoreValue>, SparseMerkleProof<StateStoreValue>), Error>
+    {
+        self.request(StorageRequest::GetStateStoreValueWithProofByVersionRequest(
+            Box::new(GetResourceValueWithProofByVersionRequest::new(
+                state_store_key,
+                version,
             )),
         ))
     }
@@ -90,14 +85,13 @@ impl StorageClient {
 impl DbReader for StorageClient {
     fn get_value_with_proof_by_version(
         &self,
-        address: AccountAddress,
+        resource_key: StateStoreKey,
         version: u64,
-    ) -> Result<(
-        Option<AccountStateBlob>,
-        SparseMerkleProof<AccountStateBlob>,
-    )> {
+    ) -> Result<(Option<StateStoreValue>, SparseMerkleProof<StateStoreValue>)> {
         Ok(Self::get_account_state_with_proof_by_version(
-            self, address, version,
+            self,
+            resource_key,
+            version,
         )?)
     }
 

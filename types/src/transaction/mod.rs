@@ -4,7 +4,6 @@
 use crate::{
     account_address::AccountAddress,
     account_config::XUS_NAME,
-    account_state_blob::AccountStateBlob,
     block_metadata::BlockMetadata,
     chain_id::ChainId,
     contract_event::ContractEvent,
@@ -51,10 +50,7 @@ pub use script::{
     TypeArgumentABI,
 };
 
-use crate::{
-    state_proof::StateProof,
-    state_store_key::{ResourceKey, ResourceValue},
-};
+use crate::state_store::{state_store_key::StateStoreKey, state_store_value::StateStoreValue};
 use std::{collections::BTreeSet, hash::Hash, ops::Deref, sync::atomic::AtomicU64};
 pub use transaction_argument::{parse_transaction_argument, TransactionArgument, VecBytes};
 
@@ -1058,7 +1054,7 @@ impl Display for TransactionInfo {
 pub struct TransactionToCommit {
     transaction: Transaction,
     transaction_info: TransactionInfo,
-    account_states: HashMap<AccountAddress, AccountStateBlob>,
+    state_store_updates: HashMap<StateStoreKey, StateStoreValue>,
     jf_node_hashes: Option<HashMap<NibblePath, HashValue>>,
     write_set: WriteSet,
     events: Vec<ContractEvent>,
@@ -1068,7 +1064,7 @@ impl TransactionToCommit {
     pub fn new(
         transaction: Transaction,
         transaction_info: TransactionInfo,
-        account_states: HashMap<AccountAddress, AccountStateBlob>,
+        state_store_updates: HashMap<StateStoreKey, StateStoreValue>,
         jf_node_hashes: Option<HashMap<NibblePath, HashValue>>,
         write_set: WriteSet,
         events: Vec<ContractEvent>,
@@ -1076,7 +1072,7 @@ impl TransactionToCommit {
         TransactionToCommit {
             transaction,
             transaction_info,
-            account_states,
+            state_store_updates,
             jf_node_hashes,
             write_set,
             events,
@@ -1096,20 +1092,8 @@ impl TransactionToCommit {
         self.transaction_info = txn_info
     }
 
-    pub fn account_states(&self) -> &HashMap<AccountAddress, AccountStateBlob> {
-        &self.account_states
-    }
-
-    pub fn state_store_value_set(&self) -> HashMap<ResourceKey, ResourceValue> {
-        self.account_states
-            .iter()
-            .map(|(address, blob)| {
-                (
-                    ResourceKey::AccountAddressKey(*address),
-                    ResourceValue::from(blob.clone()),
-                )
-            })
-            .collect()
+    pub fn state_store_updates(&self) -> &HashMap<StateStoreKey, StateStoreValue> {
+        &self.state_store_updates
     }
 
     pub fn jf_node_hashes(&self) -> Option<&HashMap<NibblePath, HashValue>> {

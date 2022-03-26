@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::{
-    account_address::HashAccountAddress,
     account_config::{AccountResource, BalanceResource, DiemAccountResource},
     account_state::AccountState,
-    state_store_key::ResourceValue,
+    state_store::state_store_value::StateStoreValue,
 };
 use anyhow::{anyhow, Error, Result};
 use aptos_crypto::{
@@ -100,8 +99,8 @@ impl TryFrom<&AccountState> for AccountStateBlob {
     }
 }
 
-impl From<ResourceValue> for AccountStateBlob {
-    fn from(state_store_value: ResourceValue) -> Self {
+impl From<StateStoreValue> for AccountStateBlob {
+    fn from(state_store_value: StateStoreValue) -> Self {
         AccountStateBlob::from(state_store_value.bytes)
     }
 }
@@ -172,7 +171,7 @@ impl Arbitrary for AccountStateBlob {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state_store_key::ResourceValueWithProof;
+    use crate::state_store::state_store_value::StateStoreValueWithProof;
     use bcs::test_helpers::assert_canonical_encode_decode;
     use proptest::collection::vec;
 
@@ -194,7 +193,7 @@ mod tests {
         }
 
         #[test]
-        fn account_state_with_proof_bcs_roundtrip(account_state_with_proof in any::<ResourceValueWithProof>()) {
+        fn account_state_with_proof_bcs_roundtrip(account_state_with_proof in any::<StateStoreValueWithProof>()) {
             assert_canonical_encode_decode(account_state_with_proof);
         }
     }

@@ -62,7 +62,6 @@ use aptos_logger::prelude::*;
 use aptos_types::{
     account_address::AccountAddress,
     account_state::AccountState,
-    account_state_blob::AccountStateBlob,
     contract_event::{ContractEvent, EventByVersionWithProof, EventWithProof},
     epoch_change::EpochChangeProof,
     event::EventKey,
@@ -72,8 +71,11 @@ use aptos_types::{
         TransactionInfoListWithProof,
     },
     state_proof::StateProof,
-    state_store_key::{
-        ResourceKey, ResourceValue, ResourceValueChunkWithProof, ResourceValueWithProof,
+    state_store::{
+        state_store_key::StateStoreKey,
+        state_store_value::{
+            StateStoreValue, StateStoreValueChunkWithProof, StateStoreValueWithProof,
+        },
     },
     transaction::{
         AccountTransactionsWithProof, TransactionInfo, TransactionListWithProof, TransactionOutput,
@@ -588,7 +590,7 @@ impl AptosDB {
 
             let account_state_sets = txns_to_commit
                 .iter()
-                .map(|txn_to_commit| txn_to_commit.state_store_value_set())
+                .map(|txn_to_commit| txn_to_commit.state_store_updates())
                 .collect::<Vec<_>>();
 
             let node_hashes = txns_to_commit
@@ -674,7 +676,7 @@ impl DbReader for AptosDB {
         })
     }
 
-    fn get_latest_value(&self, state_store_key: ResourceKey) -> Result<Option<ResourceValue>> {
+    fn get_latest_value(&self, state_store_key: StateStoreKey) -> Result<Option<StateStoreValue>> {
         gauged_api("get_latest_value", || {
             let ledger_info_with_sigs = self.ledger_store.get_latest_ledger_info()?;
             let version = ledger_info_with_sigs.ledger_info().version();
@@ -980,10 +982,10 @@ impl DbReader for AptosDB {
 
     fn get_value_with_proof(
         &self,
-        state_store_key: ResourceKey,
+        state_store_key: StateStoreKey,
         version: Version,
         ledger_version: Version,
-    ) -> Result<ResourceValueWithProof> {
+    ) -> Result<StateStoreValueWithProof> {
         gauged_api("get_account_state_with_proof", || {
             ensure!(
                 version <= ledger_version,
@@ -1007,7 +1009,7 @@ impl DbReader for AptosDB {
             let (state_store_value, sparse_merkle_proof) = self
                 .state_store
                 .get_value_with_proof_by_version(state_store_key, version)?;
-            Ok(ResourceValueWithProof::new(
+            Ok(StateStoreValueWithProof::new(
                 version,
                 state_store_value,
                 ResourceValueProof::new(txn_info_with_proof, sparse_merkle_proof),
@@ -1021,9 +1023,9 @@ impl DbReader for AptosDB {
 
     fn get_value_with_proof_by_version(
         &self,
-        state_store_key: ResourceKey,
+        state_store_key: StateStoreKey,
         version: Version,
-    ) -> Result<(Option<ResourceValue>, SparseMerkleProof<ResourceValue>)> {
+    ) -> Result<(Option<StateStoreValue>, SparseMerkleProof<StateStoreValue>)> {
         gauged_api("get_account_state_with_proof_by_version", || {
             self.state_store
                 .get_value_with_proof_by_version(state_store_key, version)
@@ -1191,7 +1193,7 @@ impl DbReader for AptosDB {
         version: Version,
         first_index: usize,
         chunk_size: usize,
-    ) -> Result<ResourceValueChunkWithProof> {
+    ) -> Result<StateStoreValueChunkWithProof> {
         gauged_api("get_account_chunk_with_proof", || {
             self.state_store
                 .get_value_chunk_with_proof(version, first_index, chunk_size)
@@ -1210,7 +1212,7 @@ impl ModuleResolver for AptosDB {
 
     fn get_module(&self, module_id: &ModuleId) -> Result<Option<Vec<u8>>> {
         let (resource_value_with_proof, _) = self.get_value_with_proof_by_version(
-            ResourceKey::AccountAddressKey(*module_id.address()),
+            StateStoreKey::AccountAddressKey(*module_id.address()),
             self.get_latest_version()?,
         )?;
         if let Some(account_state_blob) = resource_value_with_proof {
@@ -1227,7 +1229,7 @@ impl ResourceResolver for AptosDB {
 
     fn get_resource(&self, address: &AccountAddress, tag: &StructTag) -> Result<Option<Vec<u8>>> {
         let (resource_value_with_proof, _) = self.get_value_with_proof_by_version(
-            ResourceKey::AccountAddressKey(*address),
+            StateStoreKey::AccountAddressKey(*address),
             self.get_latest_version()?,
         )?;
         if let Some(account_state_blob) = resource_value_with_proof {
@@ -1336,7 +1338,7 @@ impl DbWriter for AptosDB {
         &self,
         version: Version,
         expected_root_hash: HashValue,
-    ) -> Result<Box<dyn StateSnapshotReceiver<ResourceValue>>> {
+    ) -> Result<Box<dyn StateSnapshotReceiver<StateStoreValue>>> {
         gauged_api("get_state_snapshot_receiver", || {
             self.state_store
                 .get_snapshot_receiver(version, expected_root_hash)

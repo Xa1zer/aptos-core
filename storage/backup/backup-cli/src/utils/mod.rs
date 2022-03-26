@@ -16,8 +16,7 @@ use aptos_crypto::HashValue;
 use aptos_infallible::duration_since_epoch;
 use aptos_jellyfish_merkle::{restore::JellyfishMerkleRestore, NodeBatch, TreeWriter};
 use aptos_types::{
-    account_state_blob::AccountStateBlob, state_store_key::ResourceValue, transaction::Version,
-    waypoint::Waypoint,
+    state_store::state_store_value::StateStoreValue, transaction::Version, waypoint::Waypoint,
 };
 use aptosdb::{backup::restore_handler::RestoreHandler, AptosDB, GetRestoreHandler};
 use std::{
@@ -104,8 +103,8 @@ pub enum RestoreRunMode {
 
 struct MockTreeWriter;
 
-impl TreeWriter<AccountStateBlob> for MockTreeWriter {
-    fn write_node_batch(&self, _node_batch: &NodeBatch<AccountStateBlob>) -> Result<()> {
+impl TreeWriter<StateStoreValue> for MockTreeWriter {
+    fn write_node_batch(&self, _node_batch: &NodeBatch<StateStoreValue>) -> Result<()> {
         Ok(())
     }
 }
@@ -129,7 +128,7 @@ impl RestoreRunMode {
         &self,
         version: Version,
         expected_root_hash: HashValue,
-    ) -> Result<JellyfishMerkleRestore<ResourceValue>> {
+    ) -> Result<JellyfishMerkleRestore<StateStoreValue>> {
         match self {
             Self::Restore { restore_handler } => {
                 restore_handler.get_state_restore_receiver(version, expected_root_hash)

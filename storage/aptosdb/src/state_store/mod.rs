@@ -21,11 +21,12 @@ use aptos_jellyfish_merkle::{
     JellyfishMerkleTree, TreeReader, TreeWriter,
 };
 use aptos_types::{
-    account_address::{AccountAddress, HashAccountAddress},
-    account_state_blob::AccountStateBlob,
     nibble::{nibble_path::NibblePath, ROOT_NIBBLE_HEIGHT},
     proof::{SparseMerkleProof, SparseMerkleRangeProof},
-    state_store_key::{ResourceKey, ResourceValue, ResourceValueChunkWithProof},
+    state_store::{
+        state_store_key::StateStoreKey,
+        state_store_value::{StateStoreValue, StateStoreValueChunkWithProof},
+    },
     transaction::Version,
 };
 use itertools::process_results;
@@ -33,9 +34,9 @@ use schemadb::{SchemaBatch, DB};
 use std::{collections::HashMap, sync::Arc};
 use storage_interface::StateSnapshotReceiver;
 
-type LeafNode = aptos_jellyfish_merkle::node_type::LeafNode<ResourceValue>;
-type Node = aptos_jellyfish_merkle::node_type::Node<ResourceValue>;
-type NodeBatch = aptos_jellyfish_merkle::NodeBatch<ResourceValue>;
+type LeafNode = aptos_jellyfish_merkle::node_type::LeafNode<StateStoreValue>;
+type Node = aptos_jellyfish_merkle::node_type::Node<StateStoreValue>;
+type NodeBatch = aptos_jellyfish_merkle::NodeBatch<StateStoreValue>;
 
 #[derive(Debug)]
 pub(crate) struct StateStore {
@@ -50,9 +51,9 @@ impl StateStore {
     /// Get the account state blob given account address and root hash of state Merkle tree
     pub fn get_value_with_proof_by_version(
         &self,
-        state_store_key: ResourceKey,
+        state_store_key: StateStoreKey,
         version: Version,
-    ) -> Result<(Option<ResourceValue>, SparseMerkleProof<ResourceValue>)> {
+    ) -> Result<(Option<StateStoreValue>, SparseMerkleProof<StateStoreValue>)> {
         JellyfishMerkleTree::new(self).get_with_proof(state_store_key.hash(), version)
     }
 
@@ -69,7 +70,7 @@ impl StateStore {
     /// hashes for each write set.
     pub fn put_value_sets(
         &self,
-        value_state_sets: Vec<HashMap<ResourceKey, ResourceValue>>,
+        value_state_sets: Vec<&HashMap<StateStoreKey, StateStoreValue>>,
         node_hashes: Option<Vec<&HashMap<NibblePath, HashValue>>>,
         first_version: Version,
         cs: &mut ChangeSet,
@@ -78,7 +79,7 @@ impl StateStore {
             .into_iter()
             .map(|account_states| {
                 account_states
-                    .into_iter()
+                    .iter()
                     .map(|(addr, blob)| (addr.hash(), blob))
                     .collect::<Vec<_>>()
             })
@@ -155,11 +156,11 @@ impl StateStore {
         version: Version,
         first_index: usize,
         chunk_size: usize,
-    ) -> Result<ResourceValueChunkWithProof> {
+    ) -> Result<StateStoreValueChunkWithProof> {
         let result_iter =
             JellyfishMerkleIterator::new_by_index(Arc::clone(self), version, first_index)?
                 .take(chunk_size);
-        let account_blobs: Vec<(HashValue, ResourceValue)> =
+        let account_blobs: Vec<(HashValue, StateStoreValue)> =
             process_results(result_iter, |iter| iter.collect())?;
         ensure!(
             !account_blobs.is_empty(),
@@ -171,7 +172,7 @@ impl StateStore {
         let proof = self.get_value_range_proof(last_key, version)?;
         let root_hash = self.get_root_hash(version)?;
 
-        Ok(ResourceValueChunkWithProof {
+        Ok(StateStoreValueChunkWithProof {
             first_index: first_index as u64,
             last_index,
             first_key,
@@ -186,7 +187,7 @@ impl StateStore {
         self: &Arc<Self>,
         version: Version,
         expected_root_hash: HashValue,
-    ) -> Result<Box<dyn StateSnapshotReceiver<ResourceValue>>> {
+    ) -> Result<Box<dyn StateSnapshotReceiver<StateStoreValue>>> {
         Ok(Box::new(JellyfishMerkleRestore::new_overwrite(
             Arc::clone(self),
             version,
@@ -195,7 +196,7 @@ impl StateStore {
     }
 }
 
-impl TreeReader<ResourceValue> for StateStore {
+impl TreeReader<StateStoreValue> for StateStore {
     fn get_node_option(&self, node_key: &NodeKey) -> Result<Option<Node>> {
         self.db.get::<JellyfishMerkleNodeSchema>(node_key)
     }
@@ -262,7 +263,7 @@ impl TreeReader<ResourceValue> for StateStore {
     }
 }
 
-impl TreeWriter<ResourceValue> for StateStore {
+impl TreeWriter<StateStoreValue> for StateStore {
     fn write_node_batch(&self, node_batch: &NodeBatch) -> Result<()> {
         let mut batch = SchemaBatch::new();
         add_node_batch(&mut batch, node_batch)?;

@@ -17,7 +17,7 @@ use aptos_types::{
     },
     account_state::AccountState,
     event::EventKey,
-    state_store_key::ResourceValueWithProof,
+    state_store::{state_store_key::StateStoreKey, state_store_value::StateStoreValueWithProof},
     transaction::{
         authenticator::AuthenticationKey, Transaction, TransactionListWithProof,
         TransactionWithProof, WriteSetPayload,
@@ -298,19 +298,31 @@ pub fn test_execution_with_storage_impl() -> Arc<AptosDB> {
 
     let account1_state_with_proof = db
         .reader
-        .get_value_with_proof(account1, current_version, current_version)
+        .get_value_with_proof(
+            StateStoreKey::AccountAddressKey(account1),
+            current_version,
+            current_version,
+        )
         .unwrap();
     verify_account_balance(&account1_state_with_proof, |x| x == 1_910_000).unwrap();
 
     let account2_state_with_proof = db
         .reader
-        .get_value_with_proof(account2, current_version, current_version)
+        .get_value_with_proof(
+            StateStoreKey::AccountAddressKey(account2),
+            current_version,
+            current_version,
+        )
         .unwrap();
     verify_account_balance(&account2_state_with_proof, |x| x == 1_210_000).unwrap();
 
     let account3_state_with_proof = db
         .reader
-        .get_value_with_proof(account3, current_version, current_version)
+        .get_value_with_proof(
+            StateStoreKey::AccountAddressKey(account3),
+            current_version,
+            current_version,
+        )
         .unwrap();
     verify_account_balance(&account3_state_with_proof, |x| x == 1_080_000).unwrap();
 
@@ -388,7 +400,11 @@ pub fn test_execution_with_storage_impl() -> Arc<AptosDB> {
 
     let account4_state = db
         .reader
-        .get_value_with_proof(account4, current_version, current_version)
+        .get_value_with_proof(
+            StateStoreKey::AccountAddressKey(account4),
+            current_version,
+            current_version,
+        )
         .unwrap();
     assert!(account4_state.value.is_none());
 
@@ -443,13 +459,21 @@ pub fn test_execution_with_storage_impl() -> Arc<AptosDB> {
 
     let account1_state_with_proof = db
         .reader
-        .get_value_with_proof(account1, current_version, current_version)
+        .get_value_with_proof(
+            StateStoreKey::AccountAddressKey(account1),
+            current_version,
+            current_version,
+        )
         .unwrap();
     verify_account_balance(&account1_state_with_proof, |x| x == 1_770_000).unwrap();
 
     let account3_state_with_proof = db
         .reader
-        .get_value_with_proof(account3, current_version, current_version)
+        .get_value_with_proof(
+            StateStoreKey::AccountAddressKey(account3),
+            current_version,
+            current_version,
+        )
         .unwrap();
     verify_account_balance(&account3_state_with_proof, |x| x == 1_220_000).unwrap();
 
@@ -525,7 +549,7 @@ pub fn create_db_and_executor<P: AsRef<std::path::Path>>(
 }
 
 pub fn verify_account_balance<F>(
-    account_state_with_proof: &ResourceValueWithProof,
+    account_state_with_proof: &StateStoreValueWithProof,
     f: F,
 ) -> Result<()>
 where

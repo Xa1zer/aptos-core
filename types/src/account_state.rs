@@ -16,7 +16,7 @@ use crate::{
         access_path_for_config, dpn_access_path_for_config, ConfigurationResource, OnChainConfig,
         RegisteredCurrencies, VMPublishingOption, ValidatorSet, Version,
     },
-    state_store_key::ResourceValue,
+    state_store::state_store_value::StateStoreValue,
     timestamp::TimestampResource,
     validator_config::{ValidatorConfigResource, ValidatorOperatorConfigResource},
 };
@@ -339,10 +339,18 @@ impl fmt::Debug for AccountState {
     }
 }
 
-impl TryFrom<&ResourceValue> for AccountState {
+impl TryFrom<&StateStoreValue> for AccountState {
     type Error = Error;
 
-    fn try_from(state_store_value: &ResourceValue) -> Result<Self> {
+    fn try_from(state_store_value: &StateStoreValue) -> Result<Self> {
+        AccountState::try_from(&state_store_value.bytes)
+    }
+}
+
+impl TryFrom<&mut StateStoreValue> for AccountState {
+    type Error = Error;
+
+    fn try_from(state_store_value: &mut StateStoreValue) -> Result<Self> {
         AccountState::try_from(&state_store_value.bytes)
     }
 }

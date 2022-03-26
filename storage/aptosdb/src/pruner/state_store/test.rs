@@ -1,12 +1,13 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{change_set::ChangeSet, pruner::*, state_store::StateStore, AptosDB, ResourceKey};
+use crate::{change_set::ChangeSet, pruner::*, state_store::StateStore, AptosDB};
 use aptos_crypto::HashValue;
 use aptos_temppath::TempPath;
 use aptos_types::{
-    account_address::AccountAddress, account_state_blob::AccountStateBlob,
-    state_store_key::ResourceValue,
+    account_address::AccountAddress,
+    account_state_blob::AccountStateBlob,
+    state_store::{state_store_key::StateStoreKey, state_store_value::StateStoreValue},
 };
 use std::collections::HashMap;
 
@@ -21,13 +22,13 @@ fn put_account_state_set(
         .iter()
         .map(|(address, blob)| {
             (
-                ResourceKey::AccountAddressKey(*address),
-                ResourceValue::from(blob.clone()),
+                StateStoreKey::AccountAddressKey(*address),
+                StateStoreValue::from(blob.clone()),
             )
         })
         .collect();
     let root = state_store
-        .put_value_sets(vec![value_state_set], None, version, &mut cs)
+        .put_value_sets(vec![&value_state_set], None, version, &mut cs)
         .unwrap()[0];
     db.write_schemas(cs.batch).unwrap();
 
@@ -41,7 +42,7 @@ fn verify_state_in_store(
     version: Version,
 ) {
     let (value, _proof) = state_store
-        .get_value_with_proof_by_version(ResourceKey::AccountAddressKey(address), version)
+        .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address), version)
         .unwrap();
 
     assert_eq!(
@@ -115,7 +116,7 @@ fn test_state_store_pruner() {
             .unwrap();
         // root0 is gone.
         assert!(state_store
-            .get_value_with_proof_by_version(ResourceKey::AccountAddressKey(address), 0)
+            .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address), 0)
             .is_err());
         // root1 is still there.
         verify_state_in_store(state_store, address, Some(&value1), 1);
@@ -131,7 +132,7 @@ fn test_state_store_pruner() {
             .unwrap();
         // root1 is gone.
         assert!(state_store
-            .get_value_with_proof_by_version(ResourceKey::AccountAddressKey(address), 1)
+            .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(address), 1)
             .is_err());
         // root2 is still there.
         verify_state_in_store(state_store, address, Some(&value2), 2);

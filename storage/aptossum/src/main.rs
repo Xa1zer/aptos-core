@@ -4,7 +4,9 @@
 
 use anyhow::Result;
 
-use aptos_types::{account_address::AccountAddress, event::EventKey};
+use aptos_types::{
+    account_address::AccountAddress, event::EventKey, state_store::state_store_key::StateStoreKey,
+};
 use aptosdb::aptossum::Aptossum;
 use serde::Serialize;
 use serde_json::to_string_pretty;
@@ -35,8 +37,8 @@ enum Command {
     Status,
     /// Transaction related query
     Txn(TxnOp),
-    /// Account related query
-    Account(AccountCmd),
+    /// Resource related query
+    Resource(ResourceCmd),
     /// Event related query
     #[structopt(flatten)]
     Event(EventCmd),
@@ -60,12 +62,12 @@ enum TxnOp {
 }
 
 #[derive(StructOpt)]
-struct AccountCmd {
+struct ResourceCmd {
     /// The Account Address in hex
     #[structopt(short, long, short)]
     address: AccountAddress,
     #[structopt(subcommand)]
-    account_op: AccountOp,
+    resource_op: AccountOp,
 }
 
 #[derive(StructOpt)]
@@ -144,12 +146,15 @@ fn run_cmd() -> Result<()> {
                 )?;
             }
         },
-        Command::Account(account_cmd) => {
+        Command::Resource(account_cmd) => {
             let address = account_cmd.address;
-            match account_cmd.account_op {
+            match account_cmd.resource_op {
                 AccountOp::Get { version } => {
                     print(
-                        aptossum.get_account_state_by_version(address, version)?,
+                        aptossum.get_resource_value_by_version(
+                            StateStoreKey::AccountAddressKey(address),
+                            version,
+                        )?,
                         is_json,
                     )?;
                 }

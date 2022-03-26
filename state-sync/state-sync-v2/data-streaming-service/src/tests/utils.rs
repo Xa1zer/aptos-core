@@ -15,7 +15,7 @@ use aptos_types::{
     epoch_state::EpochState,
     ledger_info::{LedgerInfo, LedgerInfoWithSignatures},
     proof::SparseMerkleRangeProof,
-    state_store_key::ResourceValueChunkWithProof,
+    state_store::state_store_value::StateStoreValueChunkWithProof,
     transaction::{
         RawTransaction, Script, SignedTransaction, Transaction, TransactionListWithProof,
         TransactionOutput, TransactionOutputListWithProof, TransactionPayload, TransactionStatus,
@@ -121,7 +121,7 @@ impl AptosDataClient for MockAptosDataClient {
         _version: Version,
         start_index: u64,
         end_index: u64,
-    ) -> Result<Response<ResourceValueChunkWithProof>, aptos_data_client::Error> {
+    ) -> Result<Response<StateStoreValueChunkWithProof>, aptos_data_client::Error> {
         self.emulate_network_latencies();
 
         // Create epoch ending ledger infos according to the requested epochs
@@ -131,7 +131,7 @@ impl AptosDataClient for MockAptosDataClient {
         }
 
         // Create an account states chunk with proof
-        let account_states = ResourceValueChunkWithProof {
+        let account_states = StateStoreValueChunkWithProof {
             first_index: start_index,
             last_index: end_index,
             first_key: HashValue::random(),

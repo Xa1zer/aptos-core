@@ -18,6 +18,7 @@ use aptos_types::{
 use storage_interface::{MoveDbReader, Order};
 
 use anyhow::{ensure, format_err, Result};
+use aptos_types::state_store::state_store_key::StateStoreKey;
 use futures::{channel::oneshot, SinkExt};
 use std::{
     borrow::Borrow,
@@ -107,8 +108,10 @@ impl Context {
         account: AccountAddress,
         version: u64,
     ) -> Result<Option<AccountStateBlob>> {
-        let (account_state_blob, _) = self.db.get_value_with_proof_by_version(account, version)?;
-        Ok(account_state_blob)
+        let (state_store_value, _) = self
+            .db
+            .get_value_with_proof_by_version(StateStoreKey::AccountAddressKey(account), version)?;
+        Ok(state_store_value.map(AccountStateBlob::from))
     }
 
     pub fn get_block_timestamp(&self, version: u64) -> Result<u64> {

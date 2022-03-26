@@ -20,8 +20,11 @@ use aptos_types::{
         SparseMerkleRangeProof, TransactionAccumulatorSummary,
     },
     state_proof::StateProof,
-    state_store_key::{
-        ResourceKey, ResourceValue, ResourceValueChunkWithProof, ResourceValueWithProof,
+    state_store::{
+        state_store_key::StateStoreKey,
+        state_store_value::{
+            StateStoreValue, StateStoreValueChunkWithProof, StateStoreValueWithProof,
+        },
     },
     transaction::{
         AccountTransactionsWithProof, TransactionInfo, TransactionListWithProof,
@@ -317,7 +320,7 @@ pub trait DbReader: Send + Sync {
     ///
     /// [`AptosDB::get_latest_account_state`]:
     /// ../aptosdb/struct.AptosDB.html#method.get_latest_account_state
-    fn get_latest_value(&self, state_store_key: ResourceKey) -> Result<Option<ResourceValue>> {
+    fn get_latest_value(&self, state_store_key: StateStoreKey) -> Result<Option<StateStoreValue>> {
         unimplemented!()
     }
 
@@ -393,10 +396,10 @@ pub trait DbReader: Send + Sync {
     /// based on `ledger_version`
     fn get_value_with_proof(
         &self,
-        state_store_key: ResourceKey,
+        state_store_key: StateStoreKey,
         version: Version,
         ledger_version: Version,
-    ) -> Result<ResourceValueWithProof> {
+    ) -> Result<StateStoreValueWithProof> {
         unimplemented!()
     }
 
@@ -410,9 +413,9 @@ pub trait DbReader: Send + Sync {
     // This is used by diem core (executor) internally.
     fn get_value_with_proof_by_version(
         &self,
-        state_store_key: ResourceKey,
+        state_store_key: StateStoreKey,
         version: Version,
-    ) -> Result<(Option<ResourceValue>, SparseMerkleProof<ResourceValue>)> {
+    ) -> Result<(Option<StateStoreValue>, SparseMerkleProof<StateStoreValue>)> {
         unimplemented!()
     }
 
@@ -489,7 +492,7 @@ pub trait DbReader: Send + Sync {
         version: Version,
         start_idx: usize,
         chunk_size: usize,
-    ) -> Result<ResourceValueChunkWithProof> {
+    ) -> Result<StateStoreValueChunkWithProof> {
         unimplemented!()
     }
 
@@ -510,7 +513,7 @@ impl MoveStorage for &dyn DbReader {
         version: Version,
     ) -> Result<Vec<u8>> {
         let (state_store_value, _) = self.get_value_with_proof_by_version(
-            ResourceKey::AccountAddressKey(access_path.address),
+            StateStoreKey::AccountAddressKey(access_path.address),
             version,
         )?;
         let account_state =
@@ -528,7 +531,7 @@ impl MoveStorage for &dyn DbReader {
         let aptos_root_state = AccountState::try_from(
             &self
                 .get_value_with_proof_by_version(
-                    ResourceKey::AccountAddressKey(aptos_root_address()),
+                    StateStoreKey::AccountAddressKey(aptos_root_address()),
                     version,
                 )?
                 .0
@@ -592,7 +595,7 @@ pub trait DbWriter: Send + Sync {
         &self,
         version: Version,
         expected_root_hash: HashValue,
-    ) -> Result<Box<dyn StateSnapshotReceiver<ResourceValue>>> {
+    ) -> Result<Box<dyn StateSnapshotReceiver<StateStoreValue>>> {
         unimplemented!()
     }
 }
@@ -632,24 +635,27 @@ impl DbReaderWriter {
 /// Network types for storage service
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum StorageRequest {
-    GetAccountStateWithProofByVersionRequest(Box<GetAccountStateWithProofByVersionRequest>),
+    GetStateStoreValueWithProofByVersionRequest(Box<GetResourceValueWithProofByVersionRequest>),
     GetStartupInfoRequest,
     SaveTransactionsRequest(Box<SaveTransactionsRequest>),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
-pub struct GetAccountStateWithProofByVersionRequest {
-    /// The access path to query with.
-    pub address: AccountAddress,
+pub struct GetResourceValueWithProofByVersionRequest {
+    /// The access key for the resource
+    pub state_store_key: StateStoreKey,
 
     /// The version the query is based on.
     pub version: Version,
 }
 
-impl GetAccountStateWithProofByVersionRequest {
+impl GetResourceValueWithProofByVersionRequest {
     /// Constructor.
-    pub fn new(address: AccountAddress, version: Version) -> Self {
-        Self { address, version }
+    pub fn new(state_store_key: StateStoreKey, version: Version) -> Self {
+        Self {
+            state_store_key,
+            version,
+        }
     }
 }
 

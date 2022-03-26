@@ -10,11 +10,10 @@ use anyhow::{ensure, Result};
 use aptos_crypto::{hash::SPARSE_MERKLE_PLACEHOLDER_HASH, HashValue};
 use aptos_jellyfish_merkle::restore::JellyfishMerkleRestore;
 use aptos_types::{
-    account_state_blob::AccountStateBlob,
     contract_event::ContractEvent,
     ledger_info::LedgerInfoWithSignatures,
     proof::{definition::LeafCount, position::FrozenSubTreeIterator},
-    state_store_key::ResourceValue,
+    state_store::state_store_value::StateStoreValue,
     transaction::{Transaction, TransactionInfo, Version, PRE_GENESIS_VERSION},
 };
 use schemadb::DB;
@@ -55,7 +54,7 @@ impl RestoreHandler {
         &self,
         version: Version,
         expected_root_hash: HashValue,
-    ) -> Result<JellyfishMerkleRestore<ResourceValue>> {
+    ) -> Result<JellyfishMerkleRestore<StateStoreValue>> {
         JellyfishMerkleRestore::new_overwrite(
             Arc::clone(&self.state_store),
             version,
